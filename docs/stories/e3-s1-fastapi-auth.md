@@ -1,6 +1,6 @@
 # E3-S1: FastAPI app, healthz & Basic auth
 
-Status: Draft
+Status: Done
 
 ## Story
 As the operator, I want the web app skeleton with a healthcheck and Basic auth, so that
@@ -17,10 +17,10 @@ First E3 story; `serve` (E2-S6) now hosts uvicorn with the scheduler in the app 
 - AC5: base.html.j2 + style.css: nav (WIP · Ops · Preview), dry-run banner block, tier badge styles shared with email macros' colors.
 
 ## Tasks
-- [ ] web/app.py: create_app, auth middleware, /healthz — AC1..AC4
-- [ ] web/templates/base.html.j2 + web/static/style.css — AC5
-- [ ] main.py serve wiring — AC1
-- [ ] tests/integration/test_web.py (auth matrix, healthz) — AC2..AC4
+- [x] web/app.py: create_app, auth middleware, /healthz — AC1..AC4
+- [x] web/templates/base.html.j2 + web/static/style.css — AC5
+- [x] main.py serve wiring — AC1
+- [x] tests/integration/test_web.py (auth matrix, healthz) — AC2..AC4
 
 ## Dev Notes
 Pure-ASGI-friendly: use FastAPI dependencies or middleware; `secrets.compare_digest`.
@@ -33,7 +33,16 @@ TestClient: healthz 200 unauthenticated; / 401 without creds, 200 with; 503 when
 unset; lifespan scheduler start/stop (spy).
 
 ## Dev Agent Record
-_(filled during implementation)_
+- `create_app(rt, with_scheduler=False)` keeps tests scheduler-free; production `serve()` runs uvicorn with the scheduler in the lifespan (replacing E2-S6's keepalive as planned).
+- Web Jinja env reuses the digest renderer's filters/globals (`localdt`, `days`, tier emoji/labels) so dashboard and email semantics can't drift.
+- `/static` is auth-exempt alongside `/healthz` (stylesheet must load on the 401 login prompt page).
+- Auth compares only the password (any username) via `secrets.compare_digest`; malformed base64 rejected, not crashed.
+- healthz returns 503 with status=degraded if the DB read fails — Docker HEALTHCHECK then restarts the container.
 
 ## QA Results
-_(filled at review)_
+- AC1 ✅ app factory + lifespan scheduler + `serve()` uvicorn on 0.0.0.0:8080 (wired from main.py `serve`).
+- AC2 ✅ `test_healthz_is_auth_exempt` (db, dry_run, last_run payload); Dockerfile HEALTHCHECK already targets /healthz (E1-S1).
+- AC3 ✅ `test_routes_require_basic_auth` (401 + WWW-Authenticate, wrong password 401, right password passes).
+- AC4 ✅ `test_missing_password_returns_503` (message names DASHBOARD_PASSWORD; healthz unaffected).
+- AC5 ✅ base template (nav WIP·Ops·Preview, dry-run banner block) + style.css with shared tier badge colors; `test_static_is_auth_exempt`.
+- Suite: ruff/mypy clean, 91 passed. **Gate: PASS**
