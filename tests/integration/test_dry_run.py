@@ -252,3 +252,47 @@ def test_rollup_skips_without_snapshots(cfg: RuntimeConfig, store: Store) -> Non
     report = execute_rollup_run(cfg, store, [], dry_run=True, now=NOW)
     assert report.status == "skipped"
     assert store.last_run() is None  # no run row for a skipped rollup
+
+
+# --- E6-S2 close-out: all three channels through build_adapters -----------------------
+
+from nagbot.channels.base import build_adapters  # noqa: E402
+
+
+@respx.mock
+def test_all_channels_dry_run_end_to_end(tmp_path: Path) -> None:
+    mock_glpi(ROWS)
+    env = EnvSettings(
+        glpi_base_url=BASE,
+        glpi_app_token="app",  # noqa: S106
+        glpi_user_token="user",  # noqa: S106
+        smtp_host="smtp.example.com",
+        smtp_from="nagbot@example.com",
+        teams_webhook_url="https://prod-1.westus.logic.azure.com/wf/x",
+        whatsapp_token="wa-token",  # noqa: S106
+        whatsapp_phone_number_id="12345",
+        whatsapp_template_name="nag_digest",
+        nagbot_config_path=tmp_path / "unused.yaml",
+        nagbot_db_path=tmp_path / "all.db",
+    )
+    app = AppConfig.model_validate(
+        {
+            "channels": {"enabled": ["email", "teams", "whatsapp"]},
+            "owners": {"jdoe": {"name": "Juan Doe", "email": "jdoe@x.com",
+                                "teams_id": "jdoe@corp.x.com", "whatsapp": "+593999999999"}},
+            "fallback": {"email": "lead@x.com"},
+        }
+    )
+    cfg = RuntimeConfig(env=env, app=app, dry_run=True)
+    store = Store(cfg.env.nagbot_db_path)
+    renderer = Renderer(GYE, glpi_web_base=cfg.glpi_web_base)
+    adapters = build_adapters(cfg, renderer)
+    assert [a.name for a in adapters] == ["email", "teams", "whatsapp"]
+    report = execute_nag_run(
+        cfg, store, adapters, glpi_factory, dry_run=True, trigger="cron", now=NOW
+    )
+    assert report.status == "ok"
+    channels = {(s.channel, s.status) for s in store.recent_sends()}
+    assert {("email", "dry_run"), ("teams", "dry_run")} <= channels
+    # whatsapp: jdoe digest dry_run; fallback owner has no number -> skipped
+    assert ("whatsapp", "dry_run") in channels and ("whatsapp", "skipped") in channels

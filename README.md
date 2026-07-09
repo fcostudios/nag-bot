@@ -15,7 +15,8 @@ live WIP and a full audit log of every nag sent.
 🟢 Fresh     listed, no pressure
 ```
 
-**Channels:** Email (live) · Microsoft Teams (Epic 5) · WhatsApp (Epic 6)
+**Channels:** Email · Microsoft Teams (Adaptive Cards with @mentions, see
+`docs/teams-setup.md`) · WhatsApp (Meta Cloud API utility template, rate-capped)
 
 ## Quick start (Docker)
 
@@ -80,11 +81,21 @@ Docs-driven: see `docs/prd.md`, `docs/architecture.md`, and the BMAD epics/stori
 `docs/epics/` and `docs/stories/` — every story carries its acceptance criteria, dev
 record and QA gate. Golden files regenerate with `pytest --update-golden`.
 
+## Channel setup
+
+- **Email** — SMTP env vars; live out of the box once dry-run is disabled.
+- **Teams** — create a Power Automate Workflow and set `TEAMS_WEBHOOK_URL`
+  (step-by-step + curl test in `docs/teams-setup.md`); set each owner's `teams_id`
+  (Microsoft 365 UPN) to get @mentions. Add `teams` to `channels.enabled`.
+- **WhatsApp** — Meta Business account + registered number
+  (`WHATSAPP_PHONE_NUMBER_ID`), access token (`WHATSAPP_TOKEN`), and an **approved
+  utility template** (`WHATSAPP_TEMPLATE_NAME`; draft text in
+  `docs/epics/e6-whatsapp-live.md` — Meta approval takes days, start early). Owner
+  numbers must be E.164. Sends are capped per run (`channels.whatsapp_max_per_run`,
+  default 20, worst offenders first) and owners without a number are simply skipped.
+
 ## Roadmap
 
-- ~~**E4** — manager escalation hardening + Monday rollup email~~ ✅ shipped: red-streak
-  manager CC (3 consecutive red run-days, weekend-tolerant), Monday 08:30 rollup to
-  `fallback.rollup_recipients`, `/rollup` view and `/ops` escalation-streak table
-- **E5** — Teams Adaptive Cards via Power Automate Workflow (with @mentions) — needs the
-  Workflow webhook URL
-- **E6** — WhatsApp Cloud API utility template — start Meta template approval early!
+All six epics of the original strategy are implemented: email digests, dashboards,
+escalation + Monday rollup, Teams cards, WhatsApp. Ideas beyond the spec: 1:1 Teams DMs
+via Graph API, GLPI 11 high-level-API client, per-team digest channels.

@@ -329,3 +329,58 @@ def test_e164_validation() -> None:
         OwnerCfg(name="x", whatsapp="0999999999")
     with pytest.raises(ValueError, match="E.164"):
         OwnerCfg(name="x", whatsapp="+0999")
+
+
+# --- E6-S2: rate cap + opt-out --------------------------------------------------------
+
+def wa_owner(i: int, *, number: bool = True) -> Owner:
+    return Owner(
+        key=f"tech:u{i}", kind="tech", display_name=f"User {i}",
+        email=f"u{i}@x.com", whatsapp=f"+5939990000{i:02d}" if number else None,
+    )
+
+
+@respx.mock
+def test_whatsapp_rate_cap_worst_first() -> None:
+    respx.post(WA_ENDPOINT).mock(
+        return_value=httpx.Response(200, json={"messages": [{"id": "wamid.1"}]})
+    )
+    adapter = whatsapp_adapter(max_per_run=20)
+    adapter.begin_run()
+    # run.py dispatches digests worst-owner-first; simulate 25 owners in that order
+    results = [
+        adapter.send_digest(make_digest(owner=wa_owner(i)), dry_run=False)
+        for i in range(25)
+    ]
+    assert [r.status for r in results[:20]] == ["sent"] * 20
+    assert [r.status for r in results[20:]] == ["skipped"] * 5
+    assert all("rate cap" in r.detail for r in results[20:])
+
+
+@respx.mock
+def test_whatsapp_optout_consumes_no_slot() -> None:
+    respx.post(WA_ENDPOINT).mock(
+        return_value=httpx.Response(200, json={"messages": [{"id": "wamid.1"}]})
+    )
+    adapter = whatsapp_adapter(max_per_run=2)
+    adapter.begin_run()
+    r1 = adapter.send_digest(make_digest(owner=wa_owner(1)), dry_run=False)
+    r2 = adapter.send_digest(make_digest(owner=wa_owner(2, number=False)), dry_run=False)
+    r3 = adapter.send_digest(make_digest(owner=wa_owner(3)), dry_run=False)
+    r4 = adapter.send_digest(make_digest(owner=wa_owner(4)), dry_run=False)
+    assert (r1.status, r2.status, r3.status) == ("sent", "skipped", "sent")
+    assert "opted out" in r2.detail
+    assert r4.status == "skipped" and "rate cap" in r4.detail
+
+
+@respx.mock
+def test_begin_run_resets_cap_between_runs() -> None:
+    respx.post(WA_ENDPOINT).mock(
+        return_value=httpx.Response(200, json={"messages": [{"id": "wamid.1"}]})
+    )
+    adapter = whatsapp_adapter(max_per_run=1)
+    adapter.begin_run()
+    assert adapter.send_digest(make_digest(owner=wa_owner(1)), dry_run=False).status == "sent"
+    assert adapter.send_digest(make_digest(owner=wa_owner(2)), dry_run=False).status == "skipped"
+    adapter.begin_run()  # next morning
+    assert adapter.send_digest(make_digest(owner=wa_owner(3)), dry_run=False).status == "sent"

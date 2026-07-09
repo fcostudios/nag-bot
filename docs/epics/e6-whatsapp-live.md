@@ -19,4 +19,14 @@ without one are skipped with `status='skipped'`; a per-run cap bounds message vo
 
 ## Retrospective
 
-_(appended when the epic closes)_
+**Closed:** 2026-07-09 · 2/2 stories Done, all gates PASS · suite: 134 tests, ruff+mypy clean.
+
+- **Changed vs. plan:** no retry on WhatsApp sends (deliberate — duplicate paid utility
+  messages are worse than waiting for tomorrow's digest; deviation recorded in S1).
+  Rate-cap plumbing landed in S1, semantics proven in S2. Worst-first cap priority came
+  free from `build_digests` ordering — zero adapter logic.
+- **Deploy prerequisites (user-side, the long pole):** Meta Business account, registered
+  number → `WHATSAPP_PHONE_NUMBER_ID`, access token, and an **approved utility template**
+  (draft in this epic's header) → `WHATSAPP_TEMPLATE_NAME`. Owners need E.164 `whatsapp:`
+  numbers (validated at config load). Enable with `channels.enabled: [email, teams, whatsapp]`.
+- **Carry-overs:** none — all six epics of the original strategy are now implemented.
