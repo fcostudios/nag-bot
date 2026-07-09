@@ -187,3 +187,111 @@ def test_unknown_ticket_404(client: TestClient) -> None:
     response = client.get("/tickets/999", auth=AUTH)
     assert response.status_code == 404
     assert "never seen this ticket" in response.text
+
+
+# --- E3-S4: snooze / run-now / preview -------------------------------------------
+
+import httpx  # noqa: E402
+import respx  # noqa: E402
+
+from nagbot.glpi.client import GlpiClient  # noqa: E402
+
+BASE = "https://glpi.example.com/apirest.php"
+
+
+def make_glpi_runtime(tmp_path: Path) -> Runtime:
+    rt = make_runtime(tmp_path)
+
+    def factory() -> GlpiClient:
+        return GlpiClient(BASE, "app", "user", server_timezone=GYE, sleep=lambda _s: None)
+
+    return Runtime(cfg=rt.cfg, store=rt.store, renderer=rt.renderer,
+                   adapters=[], glpi_factory=factory)
+
+
+def mock_glpi_rows(rows: list[dict[str, object]]) -> None:
+    respx.post(f"{BASE}/initSession").mock(
+        return_value=httpx.Response(200, json={"session_token": "s"}))
+    respx.get(f"{BASE}/killSession").mock(return_value=httpx.Response(200, json={}))
+    respx.get(f"{BASE}/listSearchOptions/Ticket").mock(
+        return_value=httpx.Response(200, json={}))
+    respx.get(f"{BASE}/search/Ticket").mock(
+        return_value=httpx.Response(200, json={"data": rows}))
+
+
+GLPI_ROW = {
+    "2": 1, "1": "Stale thing", "12": 2, "15": "2026-06-20 09:00:00",
+    "19": "2026-06-26 09:00:00", "18": None, "5": "jdoe", "8": None,
+}
+
+
+def test_snooze_roundtrip_via_forms(client: TestClient, rt: Runtime) -> None:
+    seed_snapshots(rt.store)
+    response = client.post(
+        "/snooze",
+        data={"ticket_id": "1", "until": "2099-12-31", "reason": "vendor"},
+        auth=AUTH, follow_redirects=False,
+    )
+    assert response.status_code == 303
+    assert rt.store.snooze_for(1) is not None
+    html = client.get("/tickets/1", auth=AUTH).text
+    assert "Snoozed until" in html and "2099-12-31" in html
+    client.post("/unsnooze", data={"ticket_id": "1"}, auth=AUTH)
+    assert rt.store.snooze_for(1) is None
+
+
+def test_snooze_validation_errors(client: TestClient, rt: Runtime) -> None:
+    seed_snapshots(rt.store)
+    r = client.post("/snooze", data={"ticket_id": "1", "until": "not-a-date"},
+                    auth=AUTH, follow_redirects=False)
+    assert "invalid+date" in r.headers["location"]
+    r = client.post("/snooze", data={"ticket_id": "1", "until": "2001-01-01"},
+                    auth=AUTH, follow_redirects=False)
+    assert "past" in r.headers["location"]
+    assert rt.store.snooze_for(1) is None
+
+
+@respx.mock
+def test_preview_renders_digests_without_writes(tmp_path: Path) -> None:
+    mock_glpi_rows([GLPI_ROW])
+    rt = make_glpi_runtime(tmp_path)
+    client = TestClient(create_app(rt, with_scheduler=False))
+    html = client.get("/preview", auth=AUTH).text
+    assert "Juan Doe" in html and "Stale thing" in html
+    assert "Subject:" in html
+    assert rt.store.last_run() is None  # no run rows written
+    assert rt.store.recent_sends() == []
+
+
+@respx.mock
+def test_preview_glpi_failure_shows_error(tmp_path: Path) -> None:
+    respx.post(f"{BASE}/initSession").mock(return_value=httpx.Response(500, text="down"))
+    rt = make_glpi_runtime(tmp_path)
+    client = TestClient(create_app(rt, with_scheduler=False))
+    response = client.get("/preview", auth=AUTH)
+    assert response.status_code == 502
+    assert "GLPI fetch failed" in response.text
+
+
+@respx.mock
+def test_run_now_defaults_to_dry_run(tmp_path: Path) -> None:
+    mock_glpi_rows([GLPI_ROW])
+    rt = make_glpi_runtime(tmp_path)
+    app = create_app(rt, with_scheduler=False)
+    client = TestClient(app)
+    response = client.post("/run-now", data={}, auth=AUTH, follow_redirects=False)
+    assert response.status_code == 303 and "/ops" in response.headers["location"]
+    app.state.last_run_thread.join(timeout=10)
+    last = rt.store.last_run()
+    assert last is not None and last.trigger == "manual" and last.dry_run is True
+
+
+def test_run_now_busy_flash(client: TestClient) -> None:
+    from nagbot.run import _RUN_LOCK
+
+    assert _RUN_LOCK.acquire(blocking=False)
+    try:
+        response = client.post("/run-now", data={}, auth=AUTH, follow_redirects=False)
+        assert "busy" in response.headers["location"]
+    finally:
+        _RUN_LOCK.release()

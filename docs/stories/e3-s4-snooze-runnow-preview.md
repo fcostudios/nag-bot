@@ -1,6 +1,6 @@
 # E3-S4: Snooze/unsnooze, run-now & preview
 
-Status: Draft
+Status: Done
 
 ## Story
 As the operator, I want to park blocked tickets, preview tomorrow's digests, and trigger
@@ -16,9 +16,9 @@ Last E3 story. Preview is the R5 mitigation (eyeball before going live).
 - AC4: `POST /run-now`: fires execute_nag_run in a background thread; dry-run unless a "live" checkbox AND config allows; redirects to /ops; respects the overlap lock (busy → flash message).
 
 ## Tasks
-- [ ] routes + forms in app.py — AC1, AC3, AC4
-- [ ] web/templates/preview.html.j2; snooze forms into ticket/wip templates — AC1, AC3
-- [ ] tests — AC1..AC4
+- [x] routes + forms in app.py — AC1, AC3, AC4
+- [x] web/templates/preview.html.j2; snooze forms in ticket template (E3-S3) + run-now form on /ops — AC1, AC3
+- [x] tests — AC1..AC4
 
 ## Dev Notes
 run-now thread: `threading.Thread(daemon=True)` calling the same locked entrypoint the
@@ -31,7 +31,15 @@ Snooze round-trip → integration rerun excludes ticket; preview with mocked GLP
 2 owners' HTML; run-now dry-run default writes a run row; busy lock path.
 
 ## Dev Agent Record
-_(filled during implementation)_
+- Added `python-multipart` dependency (FastAPI form parsing).
+- Validation errors redirect back with `?error=` rendered as a banner (303 + query param instead of re-render — keeps handlers stateless); past dates rejected.
+- `/preview` reuses `fetch_and_score` + `build_all_digests` from run.py exactly as planned in E2-S6 — zero duplicated pipeline logic; applies active snoozes, skips escalation flags (peeking must not bump streaks).
+- `/run-now` checks the run lock synchronously (busy → flash) then executes in a daemon thread; the thread is parked on `app.state.last_run_thread` so tests can join deterministically. Live checkbox still can't override config dry-run.
+- Snooze form markup shipped in E3-S3's ticket page; this story added the handlers + ops run-now card + flash banners.
 
 ## QA Results
-_(filled at review)_
+- AC1 ✅ `test_snooze_roundtrip_via_forms` (303, stored, page shows 💤, unsnooze clears), `test_snooze_validation_errors` (bad date + past date rejected with messages, nothing stored).
+- AC2 ✅ pipeline exclusion proven in `test_snoozed_ticket_excluded_but_snapshotted` (E2-S6 integration) — the form writes the same snoozes table.
+- AC3 ✅ `test_preview_renders_digests_without_writes` (owner + subject + ticket HTML, zero run/send rows), `test_preview_glpi_failure_shows_error` (502 + readable page).
+- AC4 ✅ `test_run_now_defaults_to_dry_run` (303 → /ops, joined thread wrote manual dry-run run), `test_run_now_busy_flash` (lock held → busy flash).
+- Suite: ruff/mypy clean, 104 passed. **Gate: PASS**

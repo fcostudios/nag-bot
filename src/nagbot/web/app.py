@@ -6,21 +6,33 @@ import base64
 import binascii
 import logging
 import secrets
+import threading
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import date, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
-from fastapi import FastAPI, Request, Response
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, Form, Request, Response
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from nagbot import __version__
 from nagbot.digest.builder import build_rollup
-from nagbot.run import execute_nag_run, execute_rollup_run
+from nagbot.run import (
+    _RUN_LOCK,
+    build_all_digests,
+    execute_nag_run,
+    execute_rollup_run,
+    fetch_and_score,
+)
 from nagbot.runtime import Runtime, build_runtime
 from nagbot.scheduler import build_scheduler
+
+
+def run_lock_busy() -> bool:
+    return _RUN_LOCK.locked()
 
 if TYPE_CHECKING:
     from apscheduler.schedulers.background import BackgroundScheduler
@@ -186,6 +198,83 @@ def register_routes(app: FastAPI) -> None:
                 "channels": rt.cfg.app.channels.enabled,
             },
         )
+
+    @app.post("/snooze")
+    def snooze(
+        ticket_id: Annotated[int, Form()],
+        until: Annotated[str, Form()],
+        reason: Annotated[str, Form()] = "",
+    ) -> Response:
+        try:
+            until_date = date.fromisoformat(until)
+        except ValueError:
+            return RedirectResponse(
+                f"/tickets/{ticket_id}?error=invalid+date", status_code=303
+            )
+        now = datetime.now(rt.cfg.tz)
+        if until_date < now.date():
+            return RedirectResponse(
+                f"/tickets/{ticket_id}?error=date+is+in+the+past", status_code=303
+            )
+        rt.store.snooze(
+            ticket_id, until=until_date, now=now, reason=reason or None, created_by="dashboard"
+        )
+        return RedirectResponse(f"/tickets/{ticket_id}", status_code=303)
+
+    @app.post("/unsnooze")
+    def unsnooze(ticket_id: Annotated[int, Form()]) -> Response:
+        rt.store.unsnooze(ticket_id)
+        return RedirectResponse(f"/tickets/{ticket_id}", status_code=303)
+
+    @app.get("/preview")
+    def preview(request: Request) -> Response:
+        now = datetime.now(rt.cfg.tz)
+        try:
+            scored = fetch_and_score(rt.cfg, rt.glpi_factory, rt.store, now)
+        except Exception as exc:  # noqa: BLE001 - GLPI down must render, not crash
+            logger.exception("preview fetch failed")
+            return templates.TemplateResponse(
+                request,
+                "preview.html.j2",
+                {"error": str(exc), "previews": []},
+                status_code=502,
+            )
+        digests, warnings = build_all_digests(
+            rt.cfg,
+            scored,
+            snoozed_ids=set(rt.store.active_snoozes(now)),
+            escalated_ids=set(),
+            now=now,
+        )
+        previews = [
+            {
+                "owner": d.owner,
+                "subject": rt.renderer.email_subject(d),
+                "html": rt.renderer.email_html(d),
+                "ticket_count": len(d.tickets),
+            }
+            for d in digests
+        ]
+        return templates.TemplateResponse(
+            request,
+            "preview.html.j2",
+            {"error": None, "previews": previews, "warnings": warnings, "now": now},
+        )
+
+    @app.post("/run-now")
+    def run_now(live: Annotated[str, Form()] = "") -> Response:
+        if run_lock_busy():
+            return RedirectResponse("/ops?flash=busy", status_code=303)
+        dry_run = not live or rt.cfg.dry_run
+        thread = threading.Thread(
+            target=execute_nag_run,
+            args=(rt.cfg, rt.store, rt.adapters, rt.glpi_factory),
+            kwargs={"dry_run": dry_run, "trigger": "manual"},
+            daemon=True,
+        )
+        thread.start()
+        app.state.last_run_thread = thread
+        return RedirectResponse("/ops?flash=run+started", status_code=303)
 
     @app.get("/tickets/{ticket_id}")
     def ticket_history(request: Request, ticket_id: int) -> Response:

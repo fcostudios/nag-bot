@@ -1,6 +1,10 @@
 {% extends "base.html.j2" %}
 {% block title %}#{{ ticket_id }} — GLPI Nagbot{% endblock %}
 {% block content %}
+{% set error = request.query_params.get("error") %}
+{% if error %}
+<div class="banner error">{{ error }}</div>
+{% endif %}
 {% if not history %}
 <h1>Ticket #{{ ticket_id }}</h1>
 <div class="empty">The nagbot has never seen this ticket. <a href="/">Back to WIP</a></div>

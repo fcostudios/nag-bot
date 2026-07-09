@@ -1,0 +1,29 @@
+{% extends "base.html.j2" %}
+{% block title %}Preview — GLPI Nagbot{% endblock %}
+{% block content %}
+<h1>Digest preview</h1>
+{% if error %}
+<div class="banner error">GLPI fetch failed: {{ error }}</div>
+<p class="muted">Check GLPI_BASE_URL / tokens and that the API is enabled, then reload.</p>
+{% else %}
+<p class="muted">
+  Live preview of what the next run would send ({{ now|localdt }}) — nothing was stored or sent.
+  {% if not previews %}No open tickets → no digests. Nice queue!{% endif %}
+</p>
+{% for p in warnings %}
+<div class="callout">{{ p }}</div>
+{% endfor %}
+{% for p in previews %}
+<div class="card">
+  <p>
+    <strong>{{ p.owner.display_name }}</strong>
+    &lt;{{ p.owner.email or "no email!" }}&gt; — {{ p.ticket_count }} ticket{{ 's' if p.ticket_count != 1 }}<br>
+    <span class="muted">Subject: {{ p.subject }}</span>
+  </p>
+  <div style="border:1px solid var(--line);padding:12px;background:#fff;">
+    {{ p.html|safe }}
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}

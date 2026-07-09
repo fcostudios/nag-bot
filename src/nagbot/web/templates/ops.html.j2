@@ -3,6 +3,23 @@
 {% block content %}
 <h1>Ops</h1>
 
+{% set flash = request.query_params.get("flash") %}
+{% if flash == "busy" %}
+<div class="banner error">A run is already in progress — try again in a minute.</div>
+{% elif flash %}
+<div class="banner flash">{{ flash }}</div>
+{% endif %}
+
+<div class="card">
+  <form method="post" action="/run-now" class="inline">
+    <button type="submit">▶ Run now</button>
+    <label title="Live requires dry-run disabled in env AND yaml">
+      <input type="checkbox" name="live" value="on"> attempt live send
+    </label>
+    <span class="muted">Runs default to dry-run; results appear below when finished.</span>
+  </form>
+</div>
+
 {% if warnings %}
 <div class="callout">
   <strong>Unmapped owners in the latest run</strong> — these tickets fell through to the fallback:
