@@ -165,6 +165,48 @@ def register_routes(app: FastAPI) -> None:
             },
         )
 
+    @app.get("/ops")
+    def ops_dashboard(
+        request: Request, channel: str = "", status: str = ""
+    ) -> Response:
+        runs = rt.store.recent_runs(limit=50)
+        sends = rt.store.recent_sends(
+            limit=200, channel=channel or None, status=status or None
+        )
+        latest_warnings = next((r.warnings for r in runs if r.warnings), [])
+        return templates.TemplateResponse(
+            request,
+            "ops.html.j2",
+            {
+                "runs": runs,
+                "sends": sends,
+                "channel": channel,
+                "status": status,
+                "warnings": latest_warnings,
+                "channels": rt.cfg.app.channels.enabled,
+            },
+        )
+
+    @app.get("/tickets/{ticket_id}")
+    def ticket_history(request: Request, ticket_id: int) -> Response:
+        history = rt.store.ticket_history(ticket_id)
+        if not history:
+            return templates.TemplateResponse(
+                request, "ticket.html.j2", {"ticket_id": ticket_id, "history": []},
+                status_code=404,
+            )
+        return templates.TemplateResponse(
+            request,
+            "ticket.html.j2",
+            {
+                "ticket_id": ticket_id,
+                "history": history,
+                "sends": rt.store.sends_for_ticket(ticket_id),
+                "snooze": rt.store.snooze_for(ticket_id),
+                "latest": history[0],
+            },
+        )
+
 
 def serve() -> int:
     import uvicorn

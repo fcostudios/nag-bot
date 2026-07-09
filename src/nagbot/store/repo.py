@@ -35,6 +35,7 @@ class RunRow:
     digests_built: int | None
     sends_attempted: int | None
     error: str | None
+    warnings: list[str]
 
 
 @dataclass(frozen=True)
@@ -117,12 +118,22 @@ class Store:
         digests_built: int | None = None,
         sends_attempted: int | None = None,
         error: str | None = None,
+        warnings: list[str] | None = None,
     ) -> None:
         with self._lock, self._conn as conn:
             conn.execute(
                 """UPDATE runs SET finished_at=?, status=?, tickets_seen=?,
-                   digests_built=?, sends_attempted=?, error=? WHERE id=?""",
-                (_iso(now), status, tickets_seen, digests_built, sends_attempted, error, run_id),
+                   digests_built=?, sends_attempted=?, error=?, warnings=? WHERE id=?""",
+                (
+                    _iso(now),
+                    status,
+                    tickets_seen,
+                    digests_built,
+                    sends_attempted,
+                    error,
+                    json.dumps(warnings or []),
+                    run_id,
+                ),
             )
 
     def recent_runs(self, limit: int = 50) -> list[RunRow]:
@@ -149,6 +160,7 @@ class Store:
             digests_built=d["digests_built"],
             sends_attempted=d["sends_attempted"],
             error=d["error"],
+            warnings=json.loads(d.get("warnings") or "[]"),
         )
 
     # -- snapshots ---------------------------------------------------------------

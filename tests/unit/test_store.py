@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from nagbot.store.db import connect, migrate
+from nagbot.store.db import MIGRATIONS, connect, migrate
 from nagbot.store.repo import SnapshotRow, Store
 
 NOW = datetime(2026, 7, 9, 13, 0, tzinfo=UTC)
@@ -36,7 +36,7 @@ def test_migrate_is_idempotent(tmp_path: Path) -> None:
     migrate(conn)
     migrate(conn)  # second call must be a no-op
     versions = [r[0] for r in conn.execute("SELECT version FROM schema_migrations")]
-    assert versions == [1]
+    assert versions == list(range(1, len(MIGRATIONS) + 1))
 
 
 def test_run_lifecycle(store: Store) -> None:

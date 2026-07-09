@@ -77,6 +77,10 @@ MIGRATIONS: list[str] = [
         fetched_at TEXT NOT NULL
     );
     """,
+    # 002 — ownership warnings recorded per run (ops dashboard callout)
+    """
+    ALTER TABLE runs ADD COLUMN warnings TEXT;
+    """,
 ]
 
 

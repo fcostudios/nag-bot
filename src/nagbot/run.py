@@ -197,6 +197,7 @@ def _execute_locked(
             tickets_seen=report.tickets_seen,
             digests_built=report.digests_built,
             sends_attempted=len(report.sends),
+            warnings=report.warnings,
         )
     except Exception as exc:  # noqa: BLE001 - record the failure, don't crash the scheduler
         logger.exception("nag run %d failed", run_id)

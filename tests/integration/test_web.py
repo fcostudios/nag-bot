@@ -139,3 +139,51 @@ def test_wip_newest_run_wins(client: TestClient, rt: Runtime) -> None:
 def test_wip_empty_state(client: TestClient) -> None:
     html = client.get("/", auth=AUTH).text
     assert "No data yet" in html
+
+
+# --- E3-S3: ops dashboard + ticket history --------------------------------------
+
+def seed_sends(store: Store, rid: int) -> None:
+    store.log_send(run_id=rid, kind="digest", channel="email", recipient="jdoe@x.com",
+                   status="dry_run", now=NOW, ticket_ids=[1, 2], detail="to=jdoe@x.com")
+    store.log_send(run_id=rid, kind="digest", channel="teams", recipient="tech:jdoe",
+                   status="skipped", now=NOW, ticket_ids=[1], detail="stub")
+    store.log_send(run_id=rid, kind="escalation", channel="email", recipient="boss@x.com",
+                   status="sent", now=NOW, ticket_ids=[1], detail="manager CC")
+
+
+def test_ops_dashboard_lists_runs_and_sends(client: TestClient, rt: Runtime) -> None:
+    rid = seed_snapshots(rt.store)
+    rt.store.finish_run(
+        rid, status="ok", now=NOW, tickets_seen=3, digests_built=2, sends_attempted=3,
+        warnings=["ticket #7: technician 'ghost' not in owner map"],
+    )
+    seed_sends(rt.store, rid)
+    html = client.get("/ops", auth=AUTH).text
+    assert "DRY-RUN" in html and ">ok<" in html
+    assert "jdoe@x.com" in html and "boss@x.com" in html
+    assert "Unmapped owners" in html and "ghost" in html
+
+
+def test_ops_send_log_filters(client: TestClient, rt: Runtime) -> None:
+    rid = seed_snapshots(rt.store)
+    seed_sends(rt.store, rid)
+    html = client.get("/ops?channel=teams", auth=AUTH).text
+    assert "stub" in html and "manager CC" not in html
+    html = client.get("/ops?status=sent", auth=AUTH).text
+    assert "manager CC" in html and "stub" not in html
+
+
+def test_ticket_history_page(client: TestClient, rt: Runtime) -> None:
+    rid = seed_snapshots(rt.store)
+    seed_sends(rt.store, rid)
+    html = client.get("/tickets/1", auth=AUTH).text
+    assert "Ticket 1" in html
+    assert "manager CC" in html  # escalation send listed
+    assert "snooze until" in html  # snooze form shown when not snoozed
+
+
+def test_unknown_ticket_404(client: TestClient) -> None:
+    response = client.get("/tickets/999", auth=AUTH)
+    assert response.status_code == 404
+    assert "never seen this ticket" in response.text

@@ -1,0 +1,70 @@
+{% extends "base.html.j2" %}
+{% block title %}#{{ ticket_id }} — GLPI Nagbot{% endblock %}
+{% block content %}
+{% if not history %}
+<h1>Ticket #{{ ticket_id }}</h1>
+<div class="empty">The nagbot has never seen this ticket. <a href="/">Back to WIP</a></div>
+{% else %}
+<h1>#{{ ticket_id }} {{ latest.title }}</h1>
+<p>
+  <span class="badge {{ latest.tier }}">{{ tier_emoji[Tier(latest.tier)] }} {{ tier_label[Tier(latest.tier)] }}</span>
+  owner: <strong>{{ latest.owner_name }}</strong> ·
+  <a href="{{ glpi_web_base }}/front/ticket.form.php?id={{ ticket_id }}">open in GLPI ↗</a>
+</p>
+
+<div class="card">
+  {% if snooze %}
+  <p>💤 Snoozed until <strong>{{ snooze.until }}</strong> (inclusive)
+     {% if snooze.reason %}— “{{ snooze.reason }}”{% endif %}</p>
+  <form method="post" action="/unsnooze" class="inline">
+    <input type="hidden" name="ticket_id" value="{{ ticket_id }}">
+    <button type="submit">Unsnooze</button>
+  </form>
+  {% else %}
+  <form method="post" action="/snooze" class="inline">
+    <input type="hidden" name="ticket_id" value="{{ ticket_id }}">
+    snooze until <input type="date" name="until" required>
+    reason <input type="text" name="reason" placeholder="waiting on vendor…">
+    <button type="submit">Snooze</button>
+  </form>
+  <span class="muted">(snoozed tickets skip digests until the date, inclusive)</span>
+  {% endif %}
+</div>
+
+<h2>Nag history</h2>
+<table>
+  <tr>
+    <th>Run</th><th>Tier</th><th class="num">Age</th><th class="num">No update</th>
+    <th>SLA</th><th>Owner</th><th></th>
+  </tr>
+  {% for h in history %}
+  <tr>
+    <td>{{ h.run_id }}</td>
+    <td><span class="badge {{ h.tier }}">{{ tier_emoji[Tier(h.tier)] }} {{ tier_label[Tier(h.tier)] }}</span></td>
+    <td class="num">{{ h.age_bd|days }}</td>
+    <td class="num">{{ h.stale_bd|days }}</td>
+    <td>{{ h.sla_status if h.sla_status != "no_sla" else "—" }}</td>
+    <td>{{ h.owner_name }}</td>
+    <td>{% if h.snoozed %}💤{% endif %}</td>
+  </tr>
+  {% endfor %}
+</table>
+
+<h2>Sends that included this ticket</h2>
+<table>
+  <tr><th>When</th><th>Kind</th><th>Channel</th><th>Recipient</th><th>Status</th><th>Detail</th></tr>
+  {% for s in sends %}
+  <tr>
+    <td>{{ s.sent_at|localdt }}</td>
+    <td>{{ s.kind }}</td>
+    <td>{{ s.channel }}</td>
+    <td>{{ s.recipient }}</td>
+    <td><span class="badge {{ s.status }}">{{ s.status }}</span></td>
+    <td class="muted">{{ s.detail }}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="6" class="empty">Never included in a send.</td></tr>
+  {% endfor %}
+</table>
+{% endif %}
+{% endblock %}
