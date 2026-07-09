@@ -323,3 +323,25 @@ def test_wip_marks_escalated_tickets(client: TestClient, rt: Runtime) -> None:
 def test_ops_hides_escalations_when_none(client: TestClient, rt: Runtime) -> None:
     seed_snapshots(rt.store)
     assert "Escalation streaks" not in client.get("/ops", auth=AUTH).text
+
+
+# --- E4-S2: rollup view + ops card ---------------------------------------------------
+
+def test_rollup_view_renders(client: TestClient, rt: Runtime) -> None:
+    seed_snapshots(rt.store)
+    html = client.get("/rollup", auth=AUTH).text
+    assert "Weekly WIP rollup" in html and "Juan Doe" in html
+    assert "Subject:" in html
+
+
+def test_rollup_view_empty_state(client: TestClient) -> None:
+    assert "No snapshot data yet" in client.get("/rollup", auth=AUTH).text
+
+
+def test_ops_rollup_card(client: TestClient, rt: Runtime) -> None:
+    seed_snapshots(rt.store)
+    rt.store.log_send(run_id=None, kind="rollup", channel="email",
+                      recipient="boss@x.com", status="sent", now=NOW)
+    html = client.get("/ops", auth=AUTH).text
+    assert "manager rollup" in html
+    assert "last sent" in html

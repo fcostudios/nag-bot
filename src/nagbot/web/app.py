@@ -201,6 +201,8 @@ def register_routes(app: FastAPI) -> None:
                 "channels": rt.cfg.app.channels.enabled,
                 "escalations": rt.store.escalations(),
                 "red_threshold": rt.cfg.app.thresholds.escalation_red_days,
+                "rollup_recipients": rt.cfg.app.fallback.rollup_recipients,
+                "last_rollup": next(iter(rt.store.recent_sends(1, kind="rollup")), None),
             },
         )
 
@@ -280,6 +282,24 @@ def register_routes(app: FastAPI) -> None:
         thread.start()
         app.state.last_run_thread = thread
         return RedirectResponse("/ops?flash=run+started", status_code=303)
+
+    @app.get("/rollup")
+    def rollup_view(request: Request) -> Response:
+        run, snaps = rt.store.latest_snapshot()
+        if run is None:
+            return templates.TemplateResponse(
+                request, "rollup.html.j2", {"html": None, "run": None}
+            )
+        rollup = build_rollup(snaps, now=run.started_at)
+        return templates.TemplateResponse(
+            request,
+            "rollup.html.j2",
+            {
+                "html": rt.renderer.rollup_html(rollup),
+                "subject": rt.renderer.rollup_subject(rollup),
+                "run": run,
+            },
+        )
 
     @app.get("/tickets/{ticket_id}")
     def ticket_history(request: Request, ticket_id: int) -> Response:

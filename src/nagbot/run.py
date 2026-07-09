@@ -10,7 +10,7 @@ from datetime import datetime
 
 from nagbot.channels.base import ChannelAdapter, SendResult
 from nagbot.config import RuntimeConfig
-from nagbot.digest.builder import Digest, build_digests
+from nagbot.digest.builder import Digest, build_digests, build_rollup
 from nagbot.engine.aging import compute_metrics
 from nagbot.engine.ownership import ScoredTicket, group_by_owner
 from nagbot.engine.tiers import Tier, classify
@@ -224,6 +224,50 @@ def execute_rollup_run(
     dry_run: bool,
     now: datetime | None = None,
 ) -> RunReport:
-    """Monday manager rollup — real implementation lands in E4-S2."""
-    logger.info("rollup run requested — not implemented until Epic 4, skipping")
-    return RunReport(run_id=-1, trigger="rollup", dry_run=dry_run, status="skipped")
+    """Monday manager rollup: WIP per person, tier distribution, worst-offender leaderboard.
+
+    Built from the latest snapshots (the 08:00 digest run refreshed them 30 minutes
+    earlier) — no fresh GLPI fetch.
+    """
+    now = now or datetime.now(cfg.tz)
+    _, snapshots = store.latest_snapshot()
+    if not snapshots:
+        logger.info("rollup skipped: no snapshots yet (no digest run has completed)")
+        return RunReport(run_id=-1, trigger="rollup", dry_run=dry_run, status="skipped")
+
+    run_id = store.start_run(trigger="rollup", dry_run=dry_run, now=now)
+    report = RunReport(run_id=run_id, trigger="rollup", dry_run=dry_run, status="ok")
+    report.tickets_seen = len(snapshots)
+    try:
+        rollup = build_rollup(snapshots, now=now)
+        for adapter in adapters:
+            try:
+                result = adapter.send_rollup(rollup, dry_run=dry_run)
+            except Exception as exc:  # noqa: BLE001 - mirror digest-path isolation
+                logger.exception("%s rollup send crashed", adapter.name)
+                result = SendResult(adapter.name, "-", "failed", detail=str(exc))
+            report.sends.append(result)
+            store.log_send(
+                run_id=run_id,
+                kind="rollup",
+                channel=result.channel,
+                recipient=result.recipient,
+                status=result.status,
+                detail=result.detail,
+                ticket_ids=[s.ticket_id for s in rollup.leaderboard],
+                now=now,
+            )
+        store.finish_run(
+            run_id,
+            status="ok",
+            now=datetime.now(cfg.tz),
+            tickets_seen=report.tickets_seen,
+            sends_attempted=len(report.sends),
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("rollup run %d failed", run_id)
+        report.status = "failed"
+        report.error = str(exc)
+        store.finish_run(run_id, status="failed", now=datetime.now(cfg.tz), error=str(exc))
+    logger.info("%s", report.summary())
+    return report

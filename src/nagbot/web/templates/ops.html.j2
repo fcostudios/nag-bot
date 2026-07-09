@@ -20,6 +20,11 @@
   </form>
 </div>
 
+<div class="card">
+  📊 <a href="/rollup">View the current manager rollup</a>
+  <span class="muted">— sent to {{ rollup_recipients|join(", ") if rollup_recipients else "nobody (set fallback.rollup_recipients!)" }} every Monday{% if last_rollup %}; last sent {{ last_rollup.sent_at|localdt }} <span class="badge {{ last_rollup.status }}">{{ last_rollup.status }}</span>{% endif %}.</span>
+</div>
+
 {% if warnings %}
 <div class="callout">
   <strong>Unmapped owners in the latest run</strong> — these tickets fell through to the fallback:

@@ -1,0 +1,14 @@
+{% extends "base.html.j2" %}
+{% block title %}Rollup — GLPI Nagbot{% endblock %}
+{% block content %}
+<h1>Manager rollup</h1>
+{% if html is none %}
+<div class="empty">No snapshot data yet — the rollup builds from the latest digest run.</div>
+{% else %}
+<p class="muted">
+  Exactly what the Monday rollup email contains, built from run #{{ run.id }}
+  ({{ run.started_at|localdt }}).<br>Subject: {{ subject }}
+</p>
+<div class="card">{{ html|safe }}</div>
+{% endif %}
+{% endblock %}

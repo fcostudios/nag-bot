@@ -200,3 +200,55 @@ def test_glpi_failure_marks_run_failed(cfg: RuntimeConfig, store: Store) -> None
     assert report.status == "failed"
     last = store.last_run()
     assert last is not None and last.status == "failed" and last.error
+
+
+# --- E4-S2: manager rollup ----------------------------------------------------------
+
+from nagbot.run import execute_rollup_run  # noqa: E402
+
+
+@respx.mock
+def test_rollup_sends_to_recipients(cfg: RuntimeConfig, store: Store) -> None:
+    mock_glpi(ROWS)
+    smtp = FakeSmtp()
+    renderer = Renderer(GYE, glpi_web_base=cfg.glpi_web_base)
+    adapter = EmailAdapter(
+        renderer, sender="nagbot@example.com",
+        smtp_factory=lambda: smtp,  # type: ignore[arg-type,return-value]
+        rollup_recipients=["boss@x.com", "cto@x.com"],
+    )
+    # a digest run first, to populate snapshots
+    execute_nag_run(cfg, store, [adapter], glpi_factory, dry_run=True, trigger="cron", now=NOW)
+    report = execute_rollup_run(cfg, store, [adapter], dry_run=False, now=NOW)
+    assert report.status == "ok"
+    (msg,) = smtp.messages  # digest run was dry; only the rollup hit SMTP
+    assert msg["To"] == "boss@x.com, cto@x.com"
+    assert "Weekly WIP rollup" in msg["Subject"]
+    rollup_rows = store.recent_sends(kind="rollup")
+    assert len(rollup_rows) == 1 and rollup_rows[0].status == "sent"
+    assert rollup_rows[0].ticket_ids  # leaderboard ids recorded
+    last = store.last_run()
+    assert last is not None and last.trigger == "rollup" and last.status == "ok"
+
+
+@respx.mock
+def test_rollup_respects_dry_run(cfg: RuntimeConfig, store: Store) -> None:
+    mock_glpi(ROWS)
+    smtp = FakeSmtp()
+    renderer = Renderer(GYE, glpi_web_base=cfg.glpi_web_base)
+    adapter = EmailAdapter(
+        renderer, sender="nagbot@example.com",
+        smtp_factory=lambda: smtp,  # type: ignore[arg-type,return-value]
+        rollup_recipients=["boss@x.com"],
+    )
+    execute_nag_run(cfg, store, [adapter], glpi_factory, dry_run=True, trigger="cron", now=NOW)
+    report = execute_rollup_run(cfg, store, [adapter], dry_run=True, now=NOW)
+    assert report.status == "ok"
+    assert smtp.calls == []
+    assert store.recent_sends(kind="rollup")[0].status == "dry_run"
+
+
+def test_rollup_skips_without_snapshots(cfg: RuntimeConfig, store: Store) -> None:
+    report = execute_rollup_run(cfg, store, [], dry_run=True, now=NOW)
+    assert report.status == "skipped"
+    assert store.last_run() is None  # no run row for a skipped rollup

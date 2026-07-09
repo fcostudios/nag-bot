@@ -277,6 +277,7 @@ class Store:
         *,
         channel: str | None = None,
         status: str | None = None,
+        kind: str | None = None,
     ) -> list[SendRow]:
         query = "SELECT * FROM send_log"
         clauses, params = [], []
@@ -286,6 +287,9 @@ class Store:
         if status:
             clauses.append("status=?")
             params.append(status)
+        if kind:
+            clauses.append("kind=?")
+            params.append(kind)
         if clauses:
             query += " WHERE " + " AND ".join(clauses)
         query += " ORDER BY id DESC LIMIT ?"
