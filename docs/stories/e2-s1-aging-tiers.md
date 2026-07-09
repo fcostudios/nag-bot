@@ -1,6 +1,6 @@
 # E2-S1: Business-day aging + tier engine
 
-Status: Draft
+Status: Done
 
 ## Story
 As the nagbot, I want pure functions that turn a ticket's dates into business-day age,
@@ -18,9 +18,9 @@ After E1. Consumes `Ticket` (E1-S3) and `Thresholds` (E1-S2). No I/O; `now` inje
 - AC5: Breach precedence: a breached ticket updated 5 minutes ago is still ON_FIRE.
 
 ## Tasks
-- [ ] engine/aging.py: SlaStatus, TicketMetrics, business_days_between, compute_metrics — AC1, AC2
-- [ ] engine/tiers.py: Tier (with worst-first sort order), classify — AC3..AC5
-- [ ] tests/unit/test_aging.py, test_tiers.py — all ACs
+- [x] engine/aging.py: SlaStatus, TicketMetrics, business_days_between, compute_metrics — AC1, AC2
+- [x] engine/tiers.py: Tier (with worst-first sort order), classify — AC3..AC5
+- [x] tests/unit/test_aging.py, test_tiers.py — all ACs
 
 ## Dev Notes
 Fractional bd: iterate calendar days in tz between the two aware datetimes; full business
@@ -33,7 +33,14 @@ Parametrized tables: Fri 17:00 → Mon 09:00 spans, holiday spans, exact thresho
 NO_SLA, breach precedence, age vs stale divergence, one non-UTC-offset sanity case.
 
 ## Dev Agent Record
-_(filled during implementation)_
+- Split `compute_sla_status` out as its own pure function (easier to table-test than through compute_metrics).
+- Exported `TIER_EMOJI`/`TIER_LABEL` alongside `TIER_ORDER` — renderer (E2-S4) and web (E3) share them, keeping badge semantics in one place.
+- "Exactly 24h away" counts as DUE_SOON (<= comparison) and "exactly now" as BREACHED (>=) — boundary-inclusive toward urgency, consistent with AC4's tier boundaries.
 
 ## QA Results
-_(filled at review)_
+- AC1 ✅ parametrized table: half-day, full day, Fri 17:00→Mon 09:00 weekend span, full week=5.0, inside-weekend=0, end<start=0, holiday zeroing, UTC-vs-local weekend boundary case.
+- AC2 ✅ SLA table incl. None→NO_SLA, 24h boundary→DUE_SOON, now→BREACHED.
+- AC3 ✅ classify table over all four tiers; `test_thresholds_come_from_config` proves no hardcoding.
+- AC4 ✅ boundary rows 2.0/5.0/7.0 land in the higher tier.
+- AC5 ✅ breached + stale 0.003bd → ON_FIRE.
+- Suite: ruff/mypy clean, 54 passed. **Gate: PASS**
