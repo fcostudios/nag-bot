@@ -1,6 +1,6 @@
 # E4-S1: Red-streak escalation (manager CC)
 
-Status: Draft
+Status: Done
 
 ## Story
 As a team lead, I want tickets that stay 🔴 for N consecutive run-days to CC me
@@ -17,9 +17,9 @@ plumbing; E2-S6 calls bump_red_streaks. This story hardens semantics + surfaces 
 - AC4: /ops shows current streaks (escalations table view).
 
 ## Tasks
-- [ ] Verify/extend bump_red_streaks semantics per AC1/AC2 with multi-day tests
-- [ ] Digest/renderer escalation marker — AC3
-- [ ] /ops escalations section — AC4
+- [x] Verify/extend bump_red_streaks semantics per AC1/AC2 with multi-day tests
+- [x] Digest/renderer escalation marker (shipped E2-S4) + WIP leaderboard ⚠️ marker — AC3
+- [x] /ops escalations section — AC4
 
 ## Dev Notes
 All hooks exist; this story is mostly semantics tests + UI surfacing. Confirmed with
@@ -30,7 +30,13 @@ Simulated 10-run sequence: red/red/red→CC, stays red→no second CC, green→r
 red×3→CC again; weekend gap tolerated.
 
 ## Dev Agent Record
-_(filled during implementation)_
+- Core semantics were already shipped and tested in E2-S3/S6 (streak table, one bump per run_date, escalate-once stamp, reset on leaving red, snoozed tickets excluded from streaks). This story added the missing proofs and UI: weekend-gap test (Fri→Mon→Tue = 3 consecutive run-days), /ops "Escalation streaks" table (streak, first red, last red day, CC'd timestamp), ⚠️ marker on WIP leaderboard rows for escalated tickets.
+- Email marker (manager-CC callout box) exists since E2-S4 and is covered by the email goldens.
+- Decision reconfirmed: streaks count *run-days* (weekday cron), gap-tolerant across weekends/holidays because only distinct run_dates bump the counter.
 
 ## QA Results
-_(filled at review)_
+- AC1 ✅ `test_red_streak_tolerates_weekend_gaps` (Fri/Mon/Tue → escalate day 3); same-day double-run no-op already covered by `test_red_streaks_escalate_once_and_reset`.
+- AC2 ✅ escalate-exactly-once + re-streak cycle covered in store test; pipeline CC + `kind='escalation'` row covered by `test_escalation_ccs_manager_after_streak` (E2-S6).
+- AC3 ✅ email callout in `email_digest.html` golden; WIP ⚠️ via `test_wip_marks_escalated_tickets`.
+- AC4 ✅ `test_ops_shows_escalation_streaks` (+ hidden-when-empty case).
+- Suite: ruff/mypy clean, 108 passed. **Gate: PASS**

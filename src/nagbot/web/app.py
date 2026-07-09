@@ -174,6 +174,9 @@ def register_routes(app: FastAPI) -> None:
                 "rollup": rollup,
                 "snapshots": snaps,
                 "snoozes": {s.ticket_id for s in snaps if s.snoozed},
+                "escalated": {
+                    e.ticket_id for e in rt.store.escalations() if e.escalated_at
+                },
             },
         )
 
@@ -196,6 +199,8 @@ def register_routes(app: FastAPI) -> None:
                 "status": status,
                 "warnings": latest_warnings,
                 "channels": rt.cfg.app.channels.enabled,
+                "escalations": rt.store.escalations(),
+                "red_threshold": rt.cfg.app.thresholds.escalation_red_days,
             },
         )
 

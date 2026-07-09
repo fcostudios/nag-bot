@@ -28,6 +28,26 @@
 </div>
 {% endif %}
 
+{% if escalations %}
+<h2>🔴 Escalation streaks</h2>
+<p class="muted">Tickets red on consecutive run-days; manager is CC'd at {{ red_threshold }} days.</p>
+<table>
+  <tr>
+    <th>Ticket</th><th class="num">Consecutive red days</th>
+    <th>First red</th><th>Last red day</th><th>Manager CC'd</th>
+  </tr>
+  {% for e in escalations %}
+  <tr>
+    <td><a href="/tickets/{{ e.ticket_id }}">#{{ e.ticket_id }}</a></td>
+    <td class="num">{{ e.consecutive_red_days }}</td>
+    <td>{{ e.first_red_at|localdt }}</td>
+    <td>{{ e.last_red_date }}</td>
+    <td>{% if e.escalated_at %}⚠️ {{ e.escalated_at|localdt }}{% else %}—{% endif %}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endif %}
+
 <h2>Runs</h2>
 <table>
   <tr>

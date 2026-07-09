@@ -295,3 +295,31 @@ def test_run_now_busy_flash(client: TestClient) -> None:
         assert "busy" in response.headers["location"]
     finally:
         _RUN_LOCK.release()
+
+
+# --- E4-S1: escalation surfacing ---------------------------------------------------
+
+from datetime import date  # noqa: E402
+
+
+def test_ops_shows_escalation_streaks(client: TestClient, rt: Runtime) -> None:
+    seed_snapshots(rt.store)
+    for d in (date(2026, 7, 6), date(2026, 7, 7), date(2026, 7, 8)):
+        rt.store.bump_red_streaks({1}, run_date=d, threshold=3, now=NOW)
+    html = client.get("/ops", auth=AUTH).text
+    assert "Escalation streaks" in html
+    assert 'href="/tickets/1"' in html
+    assert "⚠️" in html  # escalated_at stamped on day 3
+
+
+def test_wip_marks_escalated_tickets(client: TestClient, rt: Runtime) -> None:
+    seed_snapshots(rt.store)
+    for d in (date(2026, 7, 6), date(2026, 7, 7), date(2026, 7, 8)):
+        rt.store.bump_red_streaks({1}, run_date=d, threshold=3, now=NOW)
+    html = client.get("/", auth=AUTH).text
+    assert "manager CC" in html  # ⚠️ title on the leaderboard row
+
+
+def test_ops_hides_escalations_when_none(client: TestClient, rt: Runtime) -> None:
+    seed_snapshots(rt.store)
+    assert "Escalation streaks" not in client.get("/ops", auth=AUTH).text

@@ -51,7 +51,8 @@
   <tr>
     <td>{{ tier_emoji[Tier(s.tier)] }}</td>
     <td><a href="/tickets/{{ s.ticket_id }}">#{{ s.ticket_id }}</a>
-        {% if s.ticket_id in snoozes %}<span title="snoozed">💤</span>{% endif %}</td>
+        {% if s.ticket_id in snoozes %}<span title="snoozed">💤</span>{% endif %}
+        {% if s.ticket_id in escalated %}<span title="manager CC'd">⚠️</span>{% endif %}</td>
     <td><a href="{{ glpi_web_base }}/front/ticket.form.php?id={{ s.ticket_id }}">{{ s.title }}</a></td>
     <td>{{ s.owner_name }}</td>
     <td class="num">{{ s.age_bd|days }}</td>

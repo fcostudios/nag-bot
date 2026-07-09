@@ -122,3 +122,14 @@ def test_field_cache_backend(store: Store) -> None:
     assert hit is not None
     assert hit[0] == '{"1": {}}'
     assert hit[1] == NOW
+
+
+def test_red_streak_tolerates_weekend_gaps(store: Store) -> None:
+    # cron only fires weekdays: Fri -> Mon -> Tue counts as 3 consecutive run-days
+    fri, mon, tue = date(2026, 7, 3), date(2026, 7, 6), date(2026, 7, 7)
+    assert store.bump_red_streaks({5}, run_date=fri, threshold=3, now=NOW) == []
+    assert store.bump_red_streaks({5}, run_date=mon, threshold=3, now=NOW) == []
+    assert store.bump_red_streaks({5}, run_date=tue, threshold=3, now=NOW) == [5]
+    (row,) = store.escalations()
+    assert row.consecutive_red_days == 3
+    assert row.escalated_at is not None
