@@ -1,6 +1,6 @@
 # E1-S4: Field discovery, cache & version check
 
-Status: Draft
+Status: Done
 
 ## Story
 As the nagbot, I want search-option uids discovered from the instance (with cache and
@@ -18,10 +18,10 @@ injectable `CacheBackend` protocol with an in-memory default (wired to SQLite in
 - AC4: Startup logs one warning when the instance reports GLPI 11.x (apirest.php deprecated) — via initSession response or `GET /` probe; never fatal.
 
 ## Tasks
-- [ ] fields.py: discovery matching, precedence, CacheBackend protocol + InMemoryCache — AC1..AC3
-- [ ] client.py: capture glpi version hint; log warning once — AC4
-- [ ] tests/glpi/test_fields.py + listSearchOptions fixture — AC1..AC3
-- [ ] test for version warning — AC4
+- [x] fields.py: discovery matching, precedence, CacheBackend protocol + InMemoryCache — AC1..AC3
+- [x] client.py: capture glpi version hint; log warning once — AC4 (landed in E1-S3)
+- [x] tests/glpi/test_fields.py + listSearchOptions fixture — AC1..AC3
+- [x] test for version warning — AC4 (in test_client.py)
 
 ## Dev Notes
 listSearchOptions payload: `{"2": {"table":"glpi_tickets","field":"id",...}, ...}` (uid →
@@ -35,7 +35,14 @@ Trimmed real-shaped listSearchOptions fixture; override precedence table; TTL te
 injected clock; GLPI-11 version string triggers exactly one warning.
 
 ## Dev Agent Record
-_(filled during implementation)_
+- AC4 (GLPI-11 warning) was already implemented in E1-S3 via the `X-GLPI-Version` initSession header; no extra probe needed — recorded there, tested in test_client.py.
+- Tech/group disambiguation uses `linkfield` (`users_id_tech`/`groups_id_tech`) since requester shares the (glpi_users, name) signature; canonical uid is the tie-break, first candidate the last resort.
+- `group` signature accepts both `completename` and `name` (varies across GLPI versions).
+- `fetch` CLI now discovers on every invocation (one-shot process, no cache); the scheduled pipeline gets the SQLite-backed cache in E2-S3.
 
 ## QA Results
-_(filled at review)_
+- AC1 ✅ `test_discovery_matches_signatures`, `test_discovery_disambiguates_tech_by_linkfield` (moved uid 5→105 proves linkfield wins), `test_unmatched_falls_back_to_canonical` (warning asserted).
+- AC2 ✅ `test_overrides_beat_discovery`.
+- AC3 ✅ `test_cache_hit_skips_fetch_within_ttl` (23h), `test_cache_expires_after_ttl` (25h).
+- AC4 ✅ `test_glpi11_version_warning` (test_client.py).
+- Suite: ruff/mypy clean, 28 passed. **Gate: PASS**

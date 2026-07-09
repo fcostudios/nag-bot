@@ -30,7 +30,6 @@ def _cmd_fetch(as_json: bool) -> int:
     from nagbot.glpi.fields import FieldMap
 
     cfg = load_config()
-    field_map = FieldMap(cfg.app.glpi.field_ids)
     with GlpiClient(
         cfg.env.glpi_base_url,
         cfg.env.glpi_app_token.get_secret_value(),
@@ -39,6 +38,7 @@ def _cmd_fetch(as_json: bool) -> int:
         server_timezone=cfg.glpi_server_tz,
         web_base=cfg.glpi_web_base,
     ) as client:
+        field_map = FieldMap.discover(client, overrides=cfg.app.glpi.field_ids)
         tickets = client.search_open_tickets(field_map)
     if as_json:
         import json

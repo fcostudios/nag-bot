@@ -1,19 +1,23 @@
 """Mapping of logical ticket fields to GLPI search-option uids.
 
-E1-S3 ships the canonical defaults; E1-S4 adds discovery via listSearchOptions,
-caching, and YAML overrides.
+Precedence: YAML overrides > discovered via listSearchOptions > canonical defaults.
+Discovery is cached (24h TTL) behind a small CacheBackend protocol; the SQLite
+backend arrives with the store in E2-S3.
 """
 
 from __future__ import annotations
 
+import json
 import logging
-from typing import TYPE_CHECKING
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Any, Protocol
 from zoneinfo import ZoneInfo
 
 from nagbot.glpi.models import Ticket, parse_glpi_datetime
 
 if TYPE_CHECKING:
-    pass
+    from nagbot.glpi.client import GlpiClient
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +33,45 @@ CANONICAL: dict[str, int] = {
     "time_to_resolve": 18,
 }
 
+# (table, field) signatures used to recognize each logical field in listSearchOptions.
+_SIGNATURES: dict[str, tuple[str, str]] = {
+    "id": ("glpi_tickets", "id"),
+    "title": ("glpi_tickets", "name"),
+    "status": ("glpi_tickets", "status"),
+    "date_opened": ("glpi_tickets", "date"),
+    "date_mod": ("glpi_tickets", "date_mod"),
+    "tech": ("glpi_users", "name"),
+    "group": ("glpi_groups", "completename"),
+    "time_to_resolve": ("glpi_tickets", "time_to_resolve"),
+}
+
+# Disambiguators for signatures that match several options (requester vs technician...).
+_LINKFIELD_PREFERENCE: dict[str, str] = {
+    "tech": "users_id_tech",
+    "group": "groups_id_tech",
+}
+
+CACHE_TTL = timedelta(hours=24)
+
+
+class CacheBackend(Protocol):
+    def get(self, key: str) -> tuple[str, datetime] | None:
+        """Return (payload, fetched_at) or None."""
+        ...
+
+    def put(self, key: str, payload: str, fetched_at: datetime) -> None: ...
+
+
+class InMemoryCache:
+    def __init__(self) -> None:
+        self._data: dict[str, tuple[str, datetime]] = {}
+
+    def get(self, key: str) -> tuple[str, datetime] | None:
+        return self._data.get(key)
+
+    def put(self, key: str, payload: str, fetched_at: datetime) -> None:
+        self._data[key] = (payload, fetched_at)
+
 
 def _as_list(value: object) -> list[str]:
     """GLPI multi-valued cells arrive as a list, or one string joined with '$#$'."""
@@ -38,11 +81,76 @@ def _as_list(value: object) -> list[str]:
     return [s.strip() for s in items if s and str(s).strip() and str(s) != "0"]
 
 
+def _match_options(options: dict[str, Any]) -> dict[str, int]:
+    """Recognize logical fields in a listSearchOptions payload by (table, field)."""
+    candidates: dict[str, list[tuple[int, dict[str, Any]]]] = {}
+    for uid_str, opt in options.items():
+        if not uid_str.isdigit() or not isinstance(opt, dict):
+            continue  # skip non-option keys like "common"
+        table, field = opt.get("table"), opt.get("field")
+        for name, (sig_table, sig_field) in _SIGNATURES.items():
+            if table == sig_table and (
+                field == sig_field or (name == "group" and field == "name")
+            ):
+                candidates.setdefault(name, []).append((int(uid_str), opt))
+
+    discovered: dict[str, int] = {}
+    for name, found in candidates.items():
+        if len(found) == 1:
+            discovered[name] = found[0][0]
+            continue
+        preferred_link = _LINKFIELD_PREFERENCE.get(name)
+        by_link = [u for u, o in found if o.get("linkfield") == preferred_link]
+        if by_link:
+            discovered[name] = by_link[0]
+        elif CANONICAL[name] in {u for u, _ in found}:
+            discovered[name] = CANONICAL[name]
+        else:
+            discovered[name] = found[0][0]
+    return discovered
+
+
+@dataclass
 class FieldMap:
     """name -> search-option uid, plus row normalization."""
 
+    ids: dict[str, int]
+
     def __init__(self, ids: dict[str, int] | None = None) -> None:
-        self.ids: dict[str, int] = {**CANONICAL, **(ids or {})}
+        self.ids = {**CANONICAL, **(ids or {})}
+
+    @classmethod
+    def discover(
+        cls,
+        client: GlpiClient,
+        *,
+        overrides: dict[str, int] | None = None,
+        cache: CacheBackend | None = None,
+        now: datetime | None = None,
+        itemtype: str = "Ticket",
+    ) -> FieldMap:
+        """Build a FieldMap from the instance's search options (cached, overridable)."""
+        now = now or datetime.now(UTC)
+        options: dict[str, Any] | None = None
+        if cache is not None:
+            hit = cache.get(itemtype)
+            if hit is not None and now - hit[1] < CACHE_TTL:
+                options = json.loads(hit[0])
+        if options is None:
+            options = client.list_search_options(itemtype)
+            if cache is not None:
+                cache.put(itemtype, json.dumps(options), now)
+
+        discovered = _match_options(options)
+        for name in _SIGNATURES:
+            if name not in discovered:
+                logger.warning(
+                    "field %r not found in %s search options; using canonical uid %d",
+                    name,
+                    itemtype,
+                    CANONICAL[name],
+                )
+        return cls({**discovered, **(overrides or {})})
 
     def forcedisplay_params(self) -> dict[str, int]:
         return {
