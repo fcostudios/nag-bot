@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
 
 from nagbot import __version__
@@ -22,6 +23,15 @@ def build_parser() -> argparse.ArgumentParser:
     fetch = sub.add_parser("fetch", help="fetch open tickets from GLPI and print them")
     fetch.add_argument("--json", action="store_true", help="print tickets as JSON")
     return parser
+
+
+def _setup_logging() -> None:
+    from nagbot.config import EnvSettings
+
+    level = EnvSettings().nagbot_log_level.upper()
+    logging.basicConfig(
+        level=level, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+    )
 
 
 def _cmd_fetch(as_json: bool) -> int:
@@ -52,14 +62,51 @@ def _cmd_fetch(as_json: bool) -> int:
     return 0
 
 
+def _cmd_run_once(live: bool) -> int:
+    from nagbot.run import execute_nag_run
+    from nagbot.runtime import build_runtime
+
+    rt = build_runtime()
+    # --live is necessary but not sufficient: config (env AND yaml) must also allow it
+    dry_run = not live or rt.cfg.dry_run
+    if live and rt.cfg.dry_run:
+        print(
+            "note: --live requested but config forces dry-run "
+            "(set NAGBOT_DRY_RUN=false and channels.dry_run: false)",
+            file=sys.stderr,
+        )
+    report = execute_nag_run(
+        rt.cfg, rt.store, rt.adapters, rt.glpi_factory, dry_run=dry_run, trigger="manual"
+    )
+    print(report.summary())
+    for send in report.sends:
+        print(f"  [{send.status}] {send.channel} -> {send.recipient}  {send.detail}")
+    for warning in report.warnings:
+        print(f"  warning: {warning}", file=sys.stderr)
+    return 0 if report.status == "ok" else 1
+
+
+def _cmd_serve() -> int:
+    from nagbot.web.app import serve
+
+    return serve()
+
+
 def main(argv: list[str] | None = None) -> int:
+    from nagbot.config import ConfigError
+
     args = build_parser().parse_args(argv)
     command = args.command or "serve"
-    if command == "fetch":
-        return _cmd_fetch(as_json=args.json)
-    # Remaining subcommands land in later stories (E2-S6, E3-S1).
-    print(f"nagbot {__version__}: '{command}' is not implemented yet", file=sys.stderr)
-    return 2
+    _setup_logging()
+    try:
+        if command == "fetch":
+            return _cmd_fetch(as_json=args.json)
+        if command == "run-once":
+            return _cmd_run_once(live=args.live)
+        return _cmd_serve()
+    except ConfigError as exc:
+        print(f"nagbot: configuration error: {exc}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

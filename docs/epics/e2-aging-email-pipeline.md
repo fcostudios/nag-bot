@@ -20,4 +20,15 @@ cycle (snapshots + dry_run send-log rows, no SMTP traffic) and the cron fires on
 
 ## Retrospective
 
-_(appended when the epic closes)_
+**Closed:** 2026-07-09 · 6/6 stories Done, all gates PASS · suite: 87 tests, ruff+mypy clean.
+
+- **Changed vs. plan:** escalation manager-CC turned out to be ~90% "for free" in S3+S5+S6
+  (streak table, CC plumbing, kind='escalation' logging all shipped and tested here);
+  E4-S1 shrinks to semantics review + dashboard surfacing. Added `runtime.py` as the
+  single wiring point for CLI + web.
+- **Decisions recorded:** snoozed tickets don't accumulate red streaks; WhatsApp param
+  order fixed as [name, open, overdue, #oldest, days]; `serve` ships as scheduler-only
+  keepalive until E3-S1.
+- **Deployable:** yes — dry-run email MVP works end-to-end (`run-once`, compose config
+  validated); first real deploy still needs the user's GLPI/SMTP credentials and a
+  `fetch --json` sanity pass (go-live checklist).

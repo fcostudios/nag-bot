@@ -1,0 +1,14 @@
+services:
+  nagbot:
+    build: .
+    image: nagbot:latest
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config:/config:ro
+      - nagbot-data:/data
+
+volumes:
+  nagbot-data:
