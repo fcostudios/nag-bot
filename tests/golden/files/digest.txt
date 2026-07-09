@@ -1,0 +1,22 @@
+⏰ 5 open tickets — 1 OVERDUE, oldest 12d (please act)
+
+Hi Juan Doe,
+
+You have 5 open tickets.
+!! 1 ticket(s) stalled long enough that your manager is CC'd.
+🔴 #4821 Printer on fire (literally)
+   age 12d, no update 8d, SLA OVERDUE
+   https://glpi.example.com/front/ticket.form.php?id=4821
+🔴 #4890 Sample ticket 4890
+   age 9d, no update 7.5d
+   https://glpi.example.com/front/ticket.form.php?id=4890
+🟠 #4930 Sample ticket 4930
+   age 6d, no update 5.2d, SLA due 2026-07-10 04:00
+   https://glpi.example.com/front/ticket.form.php?id=4930
+🟡 #4999 Sample ticket 4999
+   age 3d, no update 2.5d
+   https://glpi.example.com/front/ticket.form.php?id=4999
+🟢 #5012 Sample ticket 5012
+   age 0.5d, no update 0.2d
+   https://glpi.example.com/front/ticket.form.php?id=5012
+(Ages in business days, generated 2026-07-09 08:00.)

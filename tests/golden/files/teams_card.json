@@ -1,0 +1,43 @@
+{
+  "type": "AdaptiveCard",
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "version": "1.4",
+  "body": [
+    {
+      "type": "TextBlock",
+      "size": "Medium",
+      "weight": "Bolder",
+      "text": "⏰ 5 open tickets — 1 OVERDUE, oldest 12d (please act)"
+    },
+    {
+      "type": "TextBlock",
+      "wrap": true,
+      "text": "Ticket digest for Juan Doe — worst first, business-day ages."
+    },
+    {
+      "type": "FactSet",
+      "facts": [
+        {
+          "title": "🔴 #4821",
+          "value": "[Printer on fire (literally)](https://glpi.example.com/front/ticket.form.php?id=4821) — age 12d, no update 8d"
+        },
+        {
+          "title": "🔴 #4890",
+          "value": "[Sample ticket 4890](https://glpi.example.com/front/ticket.form.php?id=4890) — age 9d, no update 7.5d"
+        },
+        {
+          "title": "🟠 #4930",
+          "value": "[Sample ticket 4930](https://glpi.example.com/front/ticket.form.php?id=4930) — age 6d, no update 5.2d"
+        },
+        {
+          "title": "🟡 #4999",
+          "value": "[Sample ticket 4999](https://glpi.example.com/front/ticket.form.php?id=4999) — age 3d, no update 2.5d"
+        },
+        {
+          "title": "🟢 #5012",
+          "value": "[Sample ticket 5012](https://glpi.example.com/front/ticket.form.php?id=5012) — age 0.5d, no update 0.2d"
+        }
+      ]
+    }
+  ]
+}

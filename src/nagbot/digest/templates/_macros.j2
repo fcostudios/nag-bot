@@ -1,0 +1,26 @@
+{% macro tier_badge(tier) -%}
+{{ tier_emoji[tier] }} {{ tier_label[tier] }}
+{%- endmacro %}
+
+{% macro tier_color(tier) -%}
+{%- if tier == Tier.ON_FIRE %}#c62828{% elif tier == Tier.HOT %}#ef6c00{% elif tier == Tier.AGING %}#f9a825{% else %}#2e7d32{% endif -%}
+{%- endmacro %}
+
+{% macro ticket_row_html(s, show_sla) -%}
+<tr>
+  <td style="padding:6px 8px;white-space:nowrap;color:{{ tier_color(s.tier) }};font-weight:bold;">{{ tier_emoji[s.tier] }}</td>
+  <td style="padding:6px 8px;white-space:nowrap;"><a href="{{ s.ticket.url }}" style="color:#1565c0;">#{{ s.ticket.id }}</a></td>
+  <td style="padding:6px 8px;">{{ s.ticket.title }}</td>
+  <td style="padding:6px 8px;text-align:right;white-space:nowrap;">{{ s.metrics.age_bd|days }}</td>
+  <td style="padding:6px 8px;text-align:right;white-space:nowrap;">{{ s.metrics.stale_bd|days }}</td>
+  {% if show_sla %}
+  <td style="padding:6px 8px;white-space:nowrap;">
+    {%- if s.metrics.sla_due is none %}—
+    {%- elif s.metrics.sla_status == 'breached' %}<span style="color:#c62828;font-weight:bold;">OVERDUE</span>
+    {%- elif s.metrics.sla_status == 'due_soon' %}<span style="color:#ef6c00;">due {{ s.metrics.sla_due|localdt }}</span>
+    {%- else %}{{ s.metrics.sla_due|localdt }}
+    {%- endif %}
+  </td>
+  {% endif %}
+</tr>
+{%- endmacro %}

@@ -1,0 +1,15 @@
+{{ subject }}
+
+Hi {{ d.owner.display_name }},
+
+You have {{ d.tickets|length }} open ticket{{ 's' if d.tickets|length != 1 }}.
+{% if d.escalated %}
+!! {{ d.escalated|length }} ticket(s) stalled long enough that your manager is CC'd.
+{% endif %}
+{% for s in d.tickets %}
+{{ tier_emoji[s.tier] }} #{{ s.ticket.id }} {{ s.ticket.title }}
+   age {{ s.metrics.age_bd|days }}, no update {{ s.metrics.stale_bd|days }}{% if s.metrics.sla_status == 'breached' %}, SLA OVERDUE{% elif s.metrics.sla_status == 'due_soon' %}, SLA due {{ s.metrics.sla_due|localdt }}{% endif %}
+
+   {{ s.ticket.url }}
+{% endfor %}
+(Ages in business days, generated {{ d.generated_at|localdt }}.)

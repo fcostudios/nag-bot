@@ -1,6 +1,6 @@
 # E2-S4: Digest builder, templates & goldens
 
-Status: Draft
+Status: Done
 
 ## Story
 As a technician, I want a short, scannable digest — worst first, every row deep-linking to
@@ -18,10 +18,10 @@ After E2-S1/S2. Rollup template ships here (used by E4); Teams card template shi
 - AC5: Golden tests cover all four outputs at a frozen timestamp; `pytest --update-golden` regenerates.
 
 ## Tasks
-- [ ] digest/builder.py: Digest, Rollup, PersonWip, build_digests, build_rollup — AC1
-- [ ] digest/templates/: _macros.j2, email_digest.html.j2, digest.txt.j2, teams_card.json.j2, manager_rollup.html.j2 — AC2..AC4
-- [ ] digest/renderer.py: Renderer — AC2..AC4
-- [ ] tests/golden/ + conftest --update-golden flag — AC5
+- [x] digest/builder.py: Digest, Rollup, PersonWip, build_digests, build_rollup — AC1
+- [x] digest/templates/: _macros.j2, email_digest.html.j2, digest.txt.j2, teams_card.json.j2, manager_rollup.html.j2 — AC2..AC4
+- [x] digest/renderer.py: Renderer — AC2..AC4
+- [x] tests/golden/ + conftest --update-golden flag — AC5
 
 ## Dev Notes
 Jinja2 Environment with PackageLoader("nagbot.digest"), autoescape for .html.j2 only
@@ -34,7 +34,16 @@ Golden fixture: 1 owner, 5 tickets covering all tiers + NO_SLA + escalated; froz
 now=2026-07-09T08:00-05:00. Byte-compare after newline normalization.
 
 ## Dev Agent Record
-_(filled during implementation)_
+- Subject shows "{b} OVERDUE" only when SLAs are actually breached, else "{r} on fire" for red-by-staleness — keeps NFR9's adaptive language in the subject line too.
+- Autoescape is a filename lambda (`*.html.j2` only): the Teams card template emits JSON via `tojson` filters and is `json.loads`-validated at render time, so a malformed card fails in tests, not in Teams.
+- Digest gains convenience properties (ticket_ids, breached_count, oldest, has_sla_tickets) used by subject, adapters and send-logging.
+- Digests sorted worst-owner-first for deterministic dispatch order; rollup leaderboard ranks by (tier, stale desc, age desc).
+- Golden harness is a small `GoldenComparer` fixture in tests/conftest.py (newline-normalized compare; `--update-golden` regenerates).
 
 ## QA Results
-_(filled at review)_
+- AC1 ✅ `test_digest_build_shape` (worst-first order [4821,4890,4930,4999,5012], counts, escalated subset).
+- AC2 ✅ `test_email_subject` == "⏰ 5 open tickets — 1 OVERDUE, oldest 12d (please act)".
+- AC3 ✅ email_digest.html golden: inline-styled table, 🔴 first, SLA column present only because fixture has SLA tickets (has_sla_tickets gate); digest.txt mirrors.
+- AC4 ✅ teams_card.json golden validates as AdaptiveCard 1.4; manager_rollup.html golden covers per-person WIP + distribution + top-10 leaderboard.
+- AC5 ✅ four goldens committed under tests/golden/files/; regenerated via `pytest --update-golden`.
+- Suite: ruff/mypy clean, 73 passed. **Gate: PASS**
