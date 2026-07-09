@@ -1,0 +1,51 @@
+{% import "_macros.j2" as m %}
+<div style="font-family:Segoe UI,Arial,sans-serif;font-size:14px;color:#212121;max-width:760px;">
+  <h2 style="margin:0 0 8px 0;">Weekly WIP rollup</h2>
+  <p style="margin:0 0 12px 0;">
+    <strong>{{ r.total_open }}</strong> open tickets —
+    {% for tier in Tier %}{{ tier_emoji[tier] }} {{ r.distribution[tier] }}{{ " · " if not loop.last }}{% endfor %}
+  </p>
+
+  <h3 style="margin:16px 0 6px 0;">WIP per person</h3>
+  <table cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;border:1px solid #e0e0e0;">
+    <tr style="background:#f5f5f5;text-align:left;">
+      <th style="padding:6px 8px;">Owner</th>
+      <th style="padding:6px 8px;text-align:right;">Open</th>
+      <th style="padding:6px 8px;">Tiers</th>
+      <th style="padding:6px 8px;text-align:right;">Oldest</th>
+      <th style="padding:6px 8px;text-align:right;">Worst stale</th>
+    </tr>
+    {% for p in r.per_person %}
+    <tr>
+      <td style="padding:6px 8px;">{{ p.owner_name }}</td>
+      <td style="padding:6px 8px;text-align:right;">{{ p.total }}</td>
+      <td style="padding:6px 8px;">{% for tier in Tier %}{% if p.counts[tier] %}{{ tier_emoji[tier] }}{{ p.counts[tier] }} {% endif %}{% endfor %}</td>
+      <td style="padding:6px 8px;text-align:right;">{{ p.oldest_age_bd|days }}</td>
+      <td style="padding:6px 8px;text-align:right;">{{ p.worst_stale_bd|days }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+
+  <h3 style="margin:16px 0 6px 0;">Oldest tickets (worst offenders)</h3>
+  <table cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;border:1px solid #e0e0e0;">
+    <tr style="background:#f5f5f5;text-align:left;">
+      <th style="padding:6px 8px;"></th>
+      <th style="padding:6px 8px;">Ticket</th>
+      <th style="padding:6px 8px;">Title</th>
+      <th style="padding:6px 8px;">Owner</th>
+      <th style="padding:6px 8px;text-align:right;">Age</th>
+      <th style="padding:6px 8px;text-align:right;">No update</th>
+    </tr>
+    {% for s in r.leaderboard %}
+    <tr>
+      <td style="padding:6px 8px;">{{ tier_emoji[Tier(s.tier)] }}</td>
+      <td style="padding:6px 8px;white-space:nowrap;"><a href="{{ glpi_web_base }}/front/ticket.form.php?id={{ s.ticket_id }}" style="color:#1565c0;">#{{ s.ticket_id }}</a></td>
+      <td style="padding:6px 8px;">{{ s.title }}</td>
+      <td style="padding:6px 8px;">{{ s.owner_name }}</td>
+      <td style="padding:6px 8px;text-align:right;">{{ s.age_bd|days }}</td>
+      <td style="padding:6px 8px;text-align:right;">{{ s.stale_bd|days }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  <p style="margin:12px 0 0 0;color:#757575;font-size:12px;">Generated {{ r.generated_at|localdt }} — ages in business days.</p>
+</div>

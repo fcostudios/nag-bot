@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}GLPI Nagbot{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <nav>
+    <span class="brand">⏰ nagbot</span>
+    <a href="/">WIP</a>
+    <a href="/ops">Ops</a>
+    <a href="/preview">Preview</a>
+    <span class="spacer"></span>
+    <span class="version">v{{ version }}</span>
+  </nav>
+  {% if dry_run %}
+  <div class="banner dry-run">DRY-RUN mode — nothing is actually sent. Set NAGBOT_DRY_RUN=false and channels.dry_run: false to go live.</div>
+  {% endif %}
+  {% block flash %}{% endblock %}
+  <main>
+  {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

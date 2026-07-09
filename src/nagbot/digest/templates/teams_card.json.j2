@@ -1,0 +1,43 @@
+{% set mention_text = ("<at>" ~ d.owner.display_name ~ "</at>") if d.owner.teams_id else d.owner.display_name %}
+{
+  "type": "AdaptiveCard",
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "version": "1.4",
+  "body": [
+    {
+      "type": "TextBlock",
+      "size": "Medium",
+      "weight": "Bolder",
+      "text": {{ subject | tojson }}
+    },
+    {
+      "type": "TextBlock",
+      "wrap": true,
+      "text": {{ (mention_text ~ ", this is your ticket digest — worst first, business-day ages.") | tojson }}
+    },
+    {
+      "type": "FactSet",
+      "facts": [
+        {% for s in d.tickets %}
+        {
+          "title": {{ (tier_emoji[s.tier] ~ " #" ~ s.ticket.id) | tojson }},
+          "value": {{ ("[" ~ s.ticket.title ~ "](" ~ s.ticket.url ~ ") — age " ~ s.metrics.age_bd|days ~ ", no update " ~ s.metrics.stale_bd|days) | tojson }}
+        }{{ "," if not loop.last }}
+        {% endfor %}
+      ]
+    }
+  ]{% if d.owner.teams_id %},
+  "msteams": {
+    "entities": [
+      {
+        "type": "mention",
+        "text": {{ mention_text | tojson }},
+        "mentioned": {
+          "id": {{ d.owner.teams_id | tojson }},
+          "name": {{ d.owner.display_name | tojson }}
+        }
+      }
+    ]
+  }
+{% endif %}
+}

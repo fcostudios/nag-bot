@@ -1,0 +1,114 @@
+{% extends "base.html.j2" %}
+{% block title %}Ops — GLPI Nagbot{% endblock %}
+{% block content %}
+<h1>Ops</h1>
+
+{% set flash = request.query_params.get("flash") %}
+{% if flash == "busy" %}
+<div class="banner error">A run is already in progress — try again in a minute.</div>
+{% elif flash %}
+<div class="banner flash">{{ flash }}</div>
+{% endif %}
+
+<div class="card">
+  <form method="post" action="/run-now" class="inline">
+    <button type="submit">▶ Run now</button>
+    <label title="Live requires dry-run disabled in env AND yaml">
+      <input type="checkbox" name="live" value="on"> attempt live send
+    </label>
+    <span class="muted">Runs default to dry-run; results appear below when finished.</span>
+  </form>
+</div>
+
+<div class="card">
+  📊 <a href="/rollup">View the current manager rollup</a>
+  <span class="muted">— sent to {{ rollup_recipients|join(", ") if rollup_recipients else "nobody (set fallback.rollup_recipients!)" }} every Monday{% if last_rollup %}; last sent {{ last_rollup.sent_at|localdt }} <span class="badge {{ last_rollup.status }}">{{ last_rollup.status }}</span>{% endif %}.</span>
+</div>
+
+{% if warnings %}
+<div class="callout">
+  <strong>Unmapped owners in the latest run</strong> — these tickets fell through to the fallback:
+  <ul>{% for w in warnings %}<li>{{ w }}</li>{% endfor %}</ul>
+  Fix the <code>owners:</code> / <code>groups:</code> maps in nagbot.yaml.
+</div>
+{% endif %}
+
+{% if escalations %}
+<h2>🔴 Escalation streaks</h2>
+<p class="muted">Tickets red on consecutive run-days; manager is CC'd at {{ red_threshold }} days.</p>
+<table>
+  <tr>
+    <th>Ticket</th><th class="num">Consecutive red days</th>
+    <th>First red</th><th>Last red day</th><th>Manager CC'd</th>
+  </tr>
+  {% for e in escalations %}
+  <tr>
+    <td><a href="/tickets/{{ e.ticket_id }}">#{{ e.ticket_id }}</a></td>
+    <td class="num">{{ e.consecutive_red_days }}</td>
+    <td>{{ e.first_red_at|localdt }}</td>
+    <td>{{ e.last_red_date }}</td>
+    <td>{% if e.escalated_at %}⚠️ {{ e.escalated_at|localdt }}{% else %}—{% endif %}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endif %}
+
+<h2>Runs</h2>
+<table>
+  <tr>
+    <th>#</th><th>Started</th><th>Trigger</th><th>Mode</th><th>Status</th>
+    <th class="num">Tickets</th><th class="num">Digests</th><th class="num">Sends</th><th>Error</th>
+  </tr>
+  {% for r in runs %}
+  <tr>
+    <td>{{ r.id }}</td>
+    <td>{{ r.started_at|localdt }}</td>
+    <td>{{ r.trigger }}</td>
+    <td>{% if r.dry_run %}<span class="badge dry_run">DRY-RUN</span>{% else %}live{% endif %}</td>
+    <td><span class="badge {{ r.status }}">{{ r.status }}</span></td>
+    <td class="num">{{ r.tickets_seen if r.tickets_seen is not none else "—" }}</td>
+    <td class="num">{{ r.digests_built if r.digests_built is not none else "—" }}</td>
+    <td class="num">{{ r.sends_attempted if r.sends_attempted is not none else "—" }}</td>
+    <td class="muted">{{ r.error or "" }}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="9" class="empty">No runs yet.</td></tr>
+  {% endfor %}
+</table>
+
+<h2>Send log</h2>
+<form method="get" action="/ops" class="inline">
+  <select name="channel">
+    <option value="">all channels</option>
+    {% for c in channels %}<option value="{{ c }}" {{ "selected" if c == channel }}>{{ c }}</option>{% endfor %}
+  </select>
+  <select name="status">
+    <option value="">all statuses</option>
+    {% for s in ["sent", "dry_run", "skipped", "failed"] %}
+    <option value="{{ s }}" {{ "selected" if s == status }}>{{ s }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit">Filter</button>
+</form>
+<table>
+  <tr>
+    <th>When</th><th>Run</th><th>Kind</th><th>Channel</th><th>Recipient</th>
+    <th>CC</th><th>Status</th><th>Tickets</th><th>Detail</th>
+  </tr>
+  {% for s in sends %}
+  <tr>
+    <td>{{ s.sent_at|localdt }}</td>
+    <td>{{ s.run_id or "—" }}</td>
+    <td>{{ s.kind }}</td>
+    <td>{{ s.channel }}</td>
+    <td>{{ s.recipient }}</td>
+    <td>{{ s.cc or "" }}</td>
+    <td><span class="badge {{ s.status }}">{{ s.status }}</span></td>
+    <td>{% for tid in s.ticket_ids %}<a href="/tickets/{{ tid }}">#{{ tid }}</a> {% endfor %}</td>
+    <td class="muted">{{ s.detail }}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="9" class="empty">Nothing sent yet.</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

@@ -1,0 +1,54 @@
+# GLPI Nagbot tuning — mount as /config/nagbot.yaml (secrets go in env vars, never here)
+
+timezone: America/Guayaquil
+
+schedule:
+  digest_cron: "0 8 * * mon-fri"   # daily per-owner digests
+  rollup_cron: "30 8 * * mon"      # Monday manager rollup (Epic 4)
+
+thresholds:
+  fresh_max_age_bd: 2       # 🟢 younger than this (business days) and recently updated
+  aging_stale_bd: 2         # 🟡 no update for this many business days
+  hot_stale_bd: 5           # 🟠 no update for this many business days
+  on_fire_stale_bd: 7       # 🔴 no update for this many business days (or SLA breached)
+  sla_due_soon_hours: 24    # 🟠 when SLA resolution is due within this window
+  escalation_red_days: 3    # consecutive 🔴 run-days before the manager is CC'd
+
+# Ecuador national holidays — update yearly!
+holidays:
+  - 2026-08-10
+  - 2026-10-09
+  - 2026-11-02
+  - 2026-11-03
+  - 2026-12-25
+
+channels:
+  dry_run: true             # belt AND suspenders with NAGBOT_DRY_RUN — both must be false to send
+  enabled: [email]          # later: [email, teams, whatsapp]
+  whatsapp_max_per_run: 20  # Epic 6 rate cap
+
+glpi:
+  server_timezone: America/Guayaquil   # tz of the naive datetimes GLPI returns
+  page_size: 100
+  field_ids: {}             # optional search-option uid overrides, e.g. { time_to_resolve: 18 }
+
+# Owner map — keyed by GLPI user login. aliases match display names if the API returns those.
+owners:
+  jdoe:
+    name: "Juan Doe"
+    email: jdoe@example.com
+    teams_id: jdoe@example.com
+    whatsapp: "+593999999999"
+    manager: mboss@example.com
+    aliases: ["Juan Doe"]
+
+# Fallback owners for tickets assigned to a group but no (mapped) technician — keyed by GLPI group name.
+groups:
+  Networking:
+    name: "Networking Team"
+    email: net-team@example.com
+    manager: mboss@example.com
+
+fallback:
+  email: helpdesk-lead@example.com     # unassigned / unmapped tickets land here
+  rollup_recipients: [mboss@example.com]
