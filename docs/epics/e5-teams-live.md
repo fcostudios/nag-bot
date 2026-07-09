@@ -17,4 +17,12 @@ failures are logged per-recipient and never block email.
 
 ## Retrospective
 
-_(appended when the epic closes)_
+**Closed:** 2026-07-09 · 2/2 stories Done, all gates PASS · suite: 124 tests, ruff+mypy clean.
+
+- **Changed vs. plan:** `send_rollup` went live alongside digests in S1 (transport was
+  already there; a simple FactSet card). Mention entity implemented conditionally inside
+  the template rather than in adapter code — no-teams_id owners degrade gracefully.
+- **Deploy prerequisite (user-side):** create the Power Automate Workflow and set
+  `TEAMS_WEBHOOK_URL` (steps + curl test in docs/teams-setup.md); add `teams` to
+  `channels.enabled`; set each owner's `teams_id` (AAD UPN) for mentions.
+- **Carry-overs:** none.

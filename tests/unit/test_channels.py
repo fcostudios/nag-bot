@@ -229,3 +229,31 @@ def test_teams_rollup_card_posts() -> None:
     assert result.status == "sent"
     body = json.loads(route.calls[0].request.content)
     assert "Weekly WIP rollup" in json.dumps(body)
+
+
+# --- E5-S2: mentions + deep links ---------------------------------------------------
+
+def test_card_mentions_owner_with_teams_id() -> None:
+    owner = Owner(
+        key="tech:jdoe", kind="tech", display_name="Juan Doe",
+        email="jdoe@example.com", teams_id="jdoe@corp.example.com",
+    )
+    card = RENDERER.teams_card(make_digest(owner=owner))
+    assert "<at>Juan Doe</at>" in card["body"][1]["text"]
+    (entity,) = card["msteams"]["entities"]
+    assert entity["type"] == "mention"
+    assert entity["mentioned"] == {"id": "jdoe@corp.example.com", "name": "Juan Doe"}
+
+
+def test_card_without_teams_id_has_no_mention() -> None:
+    owner = Owner(key="tech:x", kind="tech", display_name="No Teams", email="x@x.com")
+    card = RENDERER.teams_card(make_digest(owner=owner))
+    assert "msteams" not in card
+    assert "<at>" not in card["body"][1]["text"]
+    assert "No Teams" in card["body"][1]["text"]
+
+
+def test_card_rows_deep_link_to_glpi() -> None:
+    card = RENDERER.teams_card(make_digest())
+    fact = card["body"][2]["facts"][0]
+    assert "https://glpi.example.com/front/ticket.form.php?id=1" in fact["value"]

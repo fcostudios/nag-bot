@@ -1,3 +1,4 @@
+{% set mention_text = ("<at>" ~ d.owner.display_name ~ "</at>") if d.owner.teams_id else d.owner.display_name %}
 {
   "type": "AdaptiveCard",
   "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
@@ -12,7 +13,7 @@
     {
       "type": "TextBlock",
       "wrap": true,
-      "text": {{ ("Ticket digest for " ~ d.owner.display_name ~ " — worst first, business-day ages.") | tojson }}
+      "text": {{ (mention_text ~ ", this is your ticket digest — worst first, business-day ages.") | tojson }}
     },
     {
       "type": "FactSet",
@@ -25,5 +26,18 @@
         {% endfor %}
       ]
     }
-  ]
+  ]{% if d.owner.teams_id %},
+  "msteams": {
+    "entities": [
+      {
+        "type": "mention",
+        "text": {{ mention_text | tojson }},
+        "mentioned": {
+          "id": {{ d.owner.teams_id | tojson }},
+          "name": {{ d.owner.display_name | tojson }}
+        }
+      }
+    ]
+  }
+{% endif %}
 }

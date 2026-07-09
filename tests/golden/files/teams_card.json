@@ -12,7 +12,7 @@
     {
       "type": "TextBlock",
       "wrap": true,
-      "text": "Ticket digest for Juan Doe — worst first, business-day ages."
+      "text": "Juan Doe, this is your ticket digest — worst first, business-day ages."
     },
     {
       "type": "FactSet",
