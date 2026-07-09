@@ -8,7 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from nagbot.channels.base import ChannelAdapter, SendResult
+from nagbot.channels.base import ChannelAdapter, SendResult, begin_run
 from nagbot.config import RuntimeConfig
 from nagbot.digest.builder import Digest, build_digests, build_rollup
 from nagbot.engine.aging import compute_metrics
@@ -156,6 +156,7 @@ def _execute_locked(
         digests, warnings = build_all_digests(
             cfg, scored, snoozed_ids=snoozed_ids, escalated_ids=set(newly_escalated), now=now
         )
+        begin_run(adapters)  # reset per-run adapter state (rate caps)
         report.digests_built = len(digests)
         report.warnings = warnings
         for warning in warnings:

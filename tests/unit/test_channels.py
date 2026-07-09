@@ -257,3 +257,75 @@ def test_card_rows_deep_link_to_glpi() -> None:
     card = RENDERER.teams_card(make_digest())
     fact = card["body"][2]["facts"][0]
     assert "https://glpi.example.com/front/ticket.form.php?id=1" in fact["value"]
+
+
+# --- E6-S1: WhatsApp Cloud API live send ---------------------------------------------
+
+WA_ENDPOINT = "https://graph.facebook.com/v20.0/12345/messages"
+
+
+def whatsapp_adapter(**kw: object) -> WhatsAppAdapter:
+    defaults: dict[str, object] = {
+        "token": "wa-token", "phone_number_id": "12345", "template_name": "nag_digest",
+    }
+    defaults.update(kw)
+    return WhatsAppAdapter(RENDERER, **defaults)  # type: ignore[arg-type]
+
+
+@respx.mock
+def test_whatsapp_live_send_success() -> None:
+    route = respx.post(WA_ENDPOINT).mock(
+        return_value=httpx.Response(200, json={"messages": [{"id": "wamid.XYZ"}]})
+    )
+    result = whatsapp_adapter().send_digest(make_digest(), dry_run=False)
+    assert result.status == "sent"
+    assert "wamid.XYZ" in result.detail
+    request = route.calls[0].request
+    assert request.headers["Authorization"] == "Bearer wa-token"
+    body = json.loads(request.content)
+    assert body["to"] == "+593999999999"
+    assert body["template"]["name"] == "nag_digest"
+
+
+@respx.mock
+def test_whatsapp_400_fails_with_detail() -> None:
+    respx.post(WA_ENDPOINT).mock(
+        return_value=httpx.Response(400, json={"error": {"message": "param mismatch"}})
+    )
+    result = whatsapp_adapter().send_digest(make_digest(), dry_run=False)
+    assert result.status == "failed"
+    assert "param mismatch" in result.detail
+
+
+@respx.mock
+def test_whatsapp_401_fails() -> None:
+    respx.post(WA_ENDPOINT).mock(return_value=httpx.Response(401, text="bad token"))
+    result = whatsapp_adapter().send_digest(make_digest(), dry_run=False)
+    assert result.status == "failed" and "401" in result.detail
+
+
+@respx.mock
+def test_whatsapp_dry_run_no_network() -> None:
+    route = respx.post(WA_ENDPOINT).mock(return_value=httpx.Response(200))
+    result = whatsapp_adapter().send_digest(make_digest(), dry_run=True)
+    assert result.status == "dry_run"
+    assert not route.called
+
+
+def test_whatsapp_unconfigured_skips_live() -> None:
+    adapter = WhatsAppAdapter(RENDERER)  # no creds
+    result = adapter.send_digest(make_digest(), dry_run=False)
+    assert result.status == "skipped"
+    assert "not configured" in result.detail
+
+
+def test_e164_validation() -> None:
+    import pytest
+
+    from nagbot.config import OwnerCfg
+
+    assert OwnerCfg(name="x", whatsapp="+593999999999").whatsapp == "+593999999999"
+    with pytest.raises(ValueError, match="E.164"):
+        OwnerCfg(name="x", whatsapp="0999999999")
+    with pytest.raises(ValueError, match="E.164"):
+        OwnerCfg(name="x", whatsapp="+0999")

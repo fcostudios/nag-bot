@@ -30,6 +30,14 @@ class ChannelAdapter(Protocol):
     def send_rollup(self, rollup: Rollup, *, dry_run: bool) -> SendResult: ...
 
 
+def begin_run(adapters: list[ChannelAdapter]) -> None:
+    """Reset any per-run adapter state (e.g. WhatsApp's rate-cap counter)."""
+    for adapter in adapters:
+        hook = getattr(adapter, "begin_run", None)
+        if callable(hook):
+            hook()
+
+
 def build_adapters(cfg: RuntimeConfig, renderer: Renderer) -> list[ChannelAdapter]:
     """Instantiate adapters for every channel enabled in the YAML config."""
     from nagbot.channels.email import EmailAdapter
@@ -48,5 +56,17 @@ def build_adapters(cfg: RuntimeConfig, renderer: Renderer) -> list[ChannelAdapte
             )
             adapters.append(TeamsAdapter(renderer, webhook))
         elif name == "whatsapp":
-            adapters.append(WhatsAppAdapter(renderer))
+            adapters.append(
+                WhatsAppAdapter(
+                    renderer,
+                    token=(
+                        cfg.env.whatsapp_token.get_secret_value()
+                        if cfg.env.whatsapp_token
+                        else ""
+                    ),
+                    phone_number_id=cfg.env.whatsapp_phone_number_id or "",
+                    template_name=cfg.env.whatsapp_template_name or "",
+                    max_per_run=cfg.app.channels.whatsapp_max_per_run,
+                )
+            )
     return adapters

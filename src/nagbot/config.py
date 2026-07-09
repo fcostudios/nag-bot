@@ -6,6 +6,7 @@ can force it on, and only both agreeing (false) allows live sends.
 
 from __future__ import annotations
 
+import re
 from datetime import date
 from pathlib import Path
 from typing import Literal
@@ -92,6 +93,13 @@ class OwnerCfg(BaseModel):
     whatsapp: str | None = None
     manager: str | None = None
     aliases: list[str] = Field(default_factory=list)
+
+    @field_validator("whatsapp")
+    @classmethod
+    def _e164(cls, v: str | None) -> str | None:
+        if v is not None and not re.fullmatch(r"\+[1-9]\d{6,14}", v):
+            raise ValueError(f"whatsapp number {v!r} must be E.164 (+593999999999)")
+        return v
 
 
 class FallbackCfg(BaseModel):
