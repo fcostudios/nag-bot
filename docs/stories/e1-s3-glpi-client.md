@@ -1,6 +1,6 @@
 # E1-S3: GLPI session + ticket search
 
-Status: Draft
+Status: Done
 
 ## Story
 As the nagbot, I want a GLPI REST client with session lifecycle, pagination and retries,
@@ -18,11 +18,11 @@ hardcoded field uids until E1-S4 adds discovery.
 - AC5: `python -m nagbot fetch --json` prints normalized tickets as JSON (manual verification path against the real instance).
 
 ## Tasks
-- [ ] src/nagbot/glpi/models.py: Ticket — AC4
-- [ ] src/nagbot/glpi/client.py: GlpiClient (_request with retry/re-auth, initSession/killSession, search_open_tickets) — AC1..AC3
-- [ ] src/nagbot/glpi/fields.py: FieldMap with CANONICAL defaults + to_ticket(row) (discovery added in E1-S4) — AC2, AC4
-- [ ] main.py: `fetch --json` subcommand — AC5
-- [ ] tests/glpi/test_client.py + fixtures — AC1..AC4
+- [x] src/nagbot/glpi/models.py: Ticket — AC4
+- [x] src/nagbot/glpi/client.py: GlpiClient (_request with retry/re-auth, initSession/killSession, search_open_tickets) — AC1..AC3
+- [x] src/nagbot/glpi/fields.py: FieldMap with CANONICAL defaults + to_ticket(row) (discovery added in E1-S4) — AC2, AC4
+- [x] main.py: `fetch --json` subcommand — AC5
+- [x] tests/glpi/test_client.py + fixtures — AC1..AC4
 
 ## Dev Notes
 httpx.Client injectable for respx. Canonical uids: id 2, title 1, status 12, date_opened
@@ -37,7 +37,16 @@ retry; 401 `ERROR_SESSION_TOKEN_INVALID` → re-auth replay; multi-assignee row;
 datetime conversion assert.
 
 ## Dev Agent Record
-_(filled during implementation)_
+- Unparseable rows are logged + skipped rather than failing the whole fetch (one weird ticket must not kill the morning run — NFR5 spirit).
+- GLPI-11 deprecation warning (E1-S4 AC4) landed here already via the `X-GLPI-Version` initSession header — cheaper than a separate probe; E1-S4 keeps only discovery/cache/overrides.
+- Empty/`"0"` assignee cells filtered out in `_as_list` (GLPI emits `0` for "nobody").
+- Fixtures are inline respx JSON (row shapes per GLPI search docs) rather than files — small enough to stay readable in the test.
+- Manual check against the real instance (`fetch --json`) pending user's GLPI credentials — flagged as a go-live step in README (E2-S6).
 
 ## QA Results
-_(filled at review)_
+- AC1 ✅ `test_session_lifecycle_headers` (App-Token + user_token auth, Session-Token on search, killSession on exit).
+- AC2 ✅ `test_pagination_spans_pages` (206/Content-Range → range=2-3 → 200 stop; notold criteria + forcedisplay asserted via param build).
+- AC3 ✅ `test_retry_on_500_then_success`, `test_retries_exhausted_raises`, `test_reauth_on_invalid_session_token` (replay carries sess-2).
+- AC4 ✅ `test_row_normalization` (UTC-5→UTC conversion, list + `$#$` assignees, null SLA, untitled fallback, deep-link URL).
+- AC5 ✅ `fetch --json` wired in main.py (json.dumps of model_dump; count to stderr) — live-instance run deferred to go-live checklist.
+- Suite: ruff/mypy clean, 22 passed. **Gate: PASS**
