@@ -56,6 +56,7 @@ sends nothing. That's deliberate.
 | `/ops` | Run history, send log (filterable), unmapped-owner warnings, manual **Run now** |
 | `/tickets/{id}` | Per-ticket nag history + snooze/unsnooze |
 | `/preview` | Renders the exact digests the next run would send (nothing stored/sent) |
+| `/rollup` | The current Monday manager rollup, exactly as the email renders it |
 | `/healthz` | JSON health (auth-exempt; used by the Docker healthcheck) |
 
 Snooze legitimately-blocked tickets from the ticket page — they stay on the WIP board
@@ -81,6 +82,9 @@ record and QA gate. Golden files regenerate with `pytest --update-golden`.
 
 ## Roadmap
 
-- **E4** — manager escalation hardening + Monday rollup email (leaderboard included)
-- **E5** — Teams Adaptive Cards via Power Automate Workflow (with @mentions)
-- **E6** — WhatsApp Cloud API utility template (start Meta template approval early!)
+- ~~**E4** — manager escalation hardening + Monday rollup email~~ ✅ shipped: red-streak
+  manager CC (3 consecutive red run-days, weekend-tolerant), Monday 08:30 rollup to
+  `fallback.rollup_recipients`, `/rollup` view and `/ops` escalation-streak table
+- **E5** — Teams Adaptive Cards via Power Automate Workflow (with @mentions) — needs the
+  Workflow webhook URL
+- **E6** — WhatsApp Cloud API utility template — start Meta template approval early!
