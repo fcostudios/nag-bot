@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from nagbot import __version__
+from nagbot.digest.builder import build_rollup
 from nagbot.run import execute_nag_run, execute_rollup_run
 from nagbot.runtime import Runtime, build_runtime
 from nagbot.scheduler import build_scheduler
@@ -142,7 +143,27 @@ def create_app(rt: Runtime | None = None, *, with_scheduler: bool = True) -> Fas
 
 
 def register_routes(app: FastAPI) -> None:
-    """Dashboard routes land in E3-S2..S4."""
+    rt: Runtime = app.state.runtime
+    templates: Jinja2Templates = app.state.templates
+
+    @app.get("/")
+    def wip_dashboard(request: Request) -> Response:
+        run, snaps = rt.store.latest_snapshot()
+        if run is None:
+            return templates.TemplateResponse(
+                request, "wip.html.j2", {"run": None, "rollup": None, "snoozes": {}}
+            )
+        rollup = build_rollup(snaps, now=run.started_at)
+        return templates.TemplateResponse(
+            request,
+            "wip.html.j2",
+            {
+                "run": run,
+                "rollup": rollup,
+                "snapshots": snaps,
+                "snoozes": {s.ticket_id for s in snaps if s.snoozed},
+            },
+        )
 
 
 def serve() -> int:

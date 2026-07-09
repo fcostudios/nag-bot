@@ -84,3 +84,58 @@ def test_missing_password_returns_503(tmp_path: Path) -> None:
 
 def test_static_is_auth_exempt(client: TestClient) -> None:
     assert client.get("/static/style.css").status_code == 200
+
+
+# --- E3-S2: WIP dashboard -----------------------------------------------------
+
+from nagbot.store.repo import SnapshotRow  # noqa: E402
+
+
+def seed_snapshots(store: Store, run_id: int | None = None) -> int:
+    rid = run_id or store.start_run(trigger="cron", dry_run=True, now=NOW)
+
+    def snap(tid: int, owner: str, name: str, tier: str, age: float, stale: float,
+             snoozed: bool = False) -> SnapshotRow:
+        return SnapshotRow(
+            run_id=rid, ticket_id=tid, title=f"Ticket {tid}", status=2,
+            date_opened=NOW, date_mod=NOW, sla_due=None,
+            owner_key=owner, owner_name=name, tier=tier,
+            age_bd=age, stale_bd=stale, sla_status="no_sla", snoozed=snoozed,
+        )
+
+    store.save_snapshots([
+        snap(1, "tech:jdoe", "Juan Doe", "on_fire", 12, 8),
+        snap(2, "tech:jdoe", "Juan Doe", "fresh", 1, 0.1),
+        snap(3, "tech:asmith", "Ana Smith", "hot", 6, 5, snoozed=True),
+    ])
+    return rid
+
+
+def test_wip_dashboard_renders(client: TestClient, rt: Runtime) -> None:
+    seed_snapshots(rt.store)
+    html = client.get("/", auth=AUTH).text
+    assert "3</strong> open tickets" in html
+    assert "Juan Doe" in html and "Ana Smith" in html
+    assert html.index("Juan Doe") < html.index("Ana Smith")  # worst owner first
+    assert "💤" in html  # snoozed marker
+    assert "DRY-RUN" in html
+    assert "/front/ticket.form.php?id=1" in html  # GLPI deep link
+
+
+def test_wip_newest_run_wins(client: TestClient, rt: Runtime) -> None:
+    seed_snapshots(rt.store)
+    rid2 = rt.store.start_run(trigger="cron", dry_run=False, now=NOW)
+    rt.store.save_snapshots([SnapshotRow(
+        run_id=rid2, ticket_id=9, title="Only ticket", status=2,
+        date_opened=NOW, date_mod=NOW, sla_due=None,
+        owner_key="tech:jdoe", owner_name="Juan Doe", tier="aging",
+        age_bd=3, stale_bd=2.5, sla_status="no_sla",
+    )])
+    html = client.get("/", auth=AUTH).text
+    assert "1</strong> open tickets" in html
+    assert "Only ticket" in html and "Ana Smith" not in html
+
+
+def test_wip_empty_state(client: TestClient) -> None:
+    html = client.get("/", auth=AUTH).text
+    assert "No data yet" in html
