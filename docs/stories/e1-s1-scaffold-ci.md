@@ -1,6 +1,6 @@
 # E1-S1: Project scaffold + CI
 
-Status: Draft
+Status: Done
 
 ## Story
 As the maintainer, I want a CI-guarded Python project skeleton with Docker packaging, so
@@ -19,12 +19,12 @@ later story relies on.
 - AC5: `.gitignore`/`.dockerignore` exclude venvs, caches, `*.db`, `.env`.
 
 ## Tasks
-- [ ] pyproject.toml (hatchling; runtime + dev deps per architecture §2; ruff/mypy/pytest config) — AC1, AC2
-- [ ] src/nagbot/{__init__.py,main.py} with `__version__` + argparse CLI (`--version`, `serve`/`run-once`/`fetch` as placeholders) — AC3
-- [ ] tests/unit/test_version.py — AC1
-- [ ] .github/workflows/ci.yml (ruff, mypy, pytest on 3.11 & 3.12) — AC2
-- [ ] Dockerfile (python:3.12-slim, non-root, HEALTHCHECK /healthz) — AC4
-- [ ] .gitignore, .dockerignore — AC5
+- [x] pyproject.toml (hatchling; runtime + dev deps per architecture §2; ruff/mypy/pytest config) — AC1, AC2
+- [x] src/nagbot/{__init__.py,main.py} with `__version__` + argparse CLI (`--version`, `serve`/`run-once`/`fetch` as placeholders) — AC3
+- [x] tests/unit/test_version.py — AC1
+- [x] .github/workflows/ci.yml (ruff, mypy, pytest on 3.11 & 3.12) — AC2
+- [x] Dockerfile (python:3.12-slim, non-root, HEALTHCHECK /healthz) — AC4
+- [x] .gitignore, .dockerignore — AC5
 
 ## Dev Notes
 Package dir `src/nagbot/`; hatch build target `packages = ["src/nagbot"]`. Ruff rules
@@ -36,7 +36,15 @@ click dependency). `requires-python = ">=3.11"` (dev host is 3.11, container 3.1
 Commands: `ruff check . && mypy src && pytest`.
 
 ## Dev Agent Record
-_(filled during implementation)_
+- Added `src/nagbot/__main__.py` (not in original task list) so `python -m nagbot` works — required by AC3's CLI test.
+- Hatch version sourced from `src/nagbot/__init__.py` (`dynamic = ["version"]`).
+- Dev env runs Python 3.11.15; CI matrix covers 3.11 + 3.12 (container is 3.12-slim).
+- Deviation: local `docker build` impossible in this dev sandbox — its network policy 403-blocks Docker Hub/ECR blob CDNs (proxy confirmed, not a Dockerfile issue). AC4 build verification delegated to the CI `docker` job, which runs on every push.
 
 ## QA Results
-_(filled at review)_
+- AC1 ✅ `pip install -e .[dev] && pytest` → 2 passed.
+- AC2 ✅ `ruff check .` clean, `mypy src` clean (3 files); both wired in ci.yml with pytest, push+PR triggers.
+- AC3 ✅ `python -m nagbot --version` → `nagbot 0.1.0` (test_cli_version).
+- AC4 ⚠→✅ Dockerfile complete (non-root user, HEALTHCHECK /healthz, curl installed); local build blocked by sandbox CDN policy — verified green via CI docker job after push.
+- AC5 ✅ .gitignore/.dockerignore cover venv, caches, *.db, .env.
+- Story-DoD: tests written, suite green, no unrelated changes. **Gate: PASS** (AC4 evidence via CI, noted above).
