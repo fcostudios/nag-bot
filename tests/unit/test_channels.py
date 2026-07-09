@@ -150,3 +150,82 @@ def test_whatsapp_stub_payload_and_optout() -> None:
     assert adapter.send_digest(make_digest(), dry_run=True).status == "dry_run"
     no_number = Owner(key="tech:x", kind="tech", display_name="X", email="x@x.com")
     assert adapter.send_digest(make_digest(owner=no_number), dry_run=True).status == "skipped"
+
+
+# --- E5-S1: Teams live POST -----------------------------------------------------
+
+import json  # noqa: E402
+
+import httpx  # noqa: E402
+import respx  # noqa: E402
+
+WEBHOOK = "https://prod-1.westus.logic.azure.com/workflows/abc/triggers/manual/paths/invoke"
+
+
+def teams_adapter() -> TeamsAdapter:
+    return TeamsAdapter(RENDERER, WEBHOOK, sleep=lambda _s: None)
+
+
+@respx.mock
+def test_teams_live_posts_envelope() -> None:
+    route = respx.post(WEBHOOK).mock(return_value=httpx.Response(202))
+    result = teams_adapter().send_digest(make_digest(), dry_run=False)
+    assert result.status == "sent"
+    body = json.loads(route.calls[0].request.content)
+    assert body["type"] == "message"
+    (attachment,) = body["attachments"]
+    assert attachment["contentType"] == "application/vnd.microsoft.card.adaptive"
+    assert attachment["content"]["type"] == "AdaptiveCard"
+
+
+@respx.mock
+def test_teams_retries_on_429_then_succeeds() -> None:
+    respx.post(WEBHOOK).mock(side_effect=[httpx.Response(429), httpx.Response(202)])
+    assert teams_adapter().send_digest(make_digest(), dry_run=False).status == "sent"
+
+
+@respx.mock
+def test_teams_permanent_400_fails_with_detail() -> None:
+    respx.post(WEBHOOK).mock(return_value=httpx.Response(400, text="bad trigger schema"))
+    result = teams_adapter().send_digest(make_digest(), dry_run=False)
+    assert result.status == "failed"
+    assert "bad trigger schema" in result.detail
+
+
+@respx.mock
+def test_teams_gives_up_after_retries() -> None:
+    respx.post(WEBHOOK).mock(return_value=httpx.Response(503))
+    result = teams_adapter().send_digest(make_digest(), dry_run=False)
+    assert result.status == "failed"
+    assert "gave up after 3 attempts" in result.detail
+
+
+@respx.mock
+def test_teams_dry_run_no_network() -> None:
+    route = respx.post(WEBHOOK).mock(return_value=httpx.Response(202))
+    result = teams_adapter().send_digest(make_digest(), dry_run=True)
+    assert result.status == "dry_run"
+    assert not route.called
+
+
+def test_teams_without_webhook_skips() -> None:
+    adapter = TeamsAdapter(RENDERER, "")
+    assert adapter.send_digest(make_digest(), dry_run=False).status == "skipped"
+
+
+@respx.mock
+def test_teams_rollup_card_posts() -> None:
+    from nagbot.digest.builder import build_rollup
+    from nagbot.store.repo import SnapshotRow
+
+    route = respx.post(WEBHOOK).mock(return_value=httpx.Response(202))
+    snap = SnapshotRow(
+        run_id=1, ticket_id=1, title="T1", status=2, date_opened=None, date_mod=None,
+        sla_due=None, owner_key="tech:jdoe", owner_name="Juan Doe", tier="on_fire",
+        age_bd=12, stale_bd=8, sla_status="no_sla",
+    )
+    rollup = build_rollup([snap], now=NOW)
+    result = teams_adapter().send_rollup(rollup, dry_run=False)
+    assert result.status == "sent"
+    body = json.loads(route.calls[0].request.content)
+    assert "Weekly WIP rollup" in json.dumps(body)

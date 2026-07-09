@@ -41,7 +41,12 @@ def build_adapters(cfg: RuntimeConfig, renderer: Renderer) -> list[ChannelAdapte
         if name == "email":
             adapters.append(EmailAdapter.from_config(cfg, renderer))
         elif name == "teams":
-            adapters.append(TeamsAdapter(renderer))
+            webhook = (
+                cfg.env.teams_webhook_url.get_secret_value()
+                if cfg.env.teams_webhook_url
+                else ""
+            )
+            adapters.append(TeamsAdapter(renderer, webhook))
         elif name == "whatsapp":
             adapters.append(WhatsAppAdapter(renderer))
     return adapters
