@@ -1,6 +1,6 @@
 # E2-S5: ChannelAdapter protocol + Email live + stubs
 
-Status: Draft
+Status: Done
 
 ## Story
 As the nagbot, I want all channels behind one protocol with Email fully live, so that
@@ -19,10 +19,10 @@ must not touch the network when it's true.
 - AC5: Teams/WhatsApp stubs satisfy the protocol: render their payload (card JSON / template params), log it, return `dry_run` when dry_run else `skipped` with "not implemented until E5/E6".
 
 ## Tasks
-- [ ] channels/base.py — AC1
-- [ ] channels/email.py — AC2..AC4
-- [ ] channels/teams.py, channels/whatsapp.py — AC5
-- [ ] tests/unit/test_channels.py with recording fake SMTP — AC2..AC5
+- [x] channels/base.py — AC1
+- [x] channels/email.py — AC2..AC4
+- [x] channels/teams.py, channels/whatsapp.py — AC5
+- [x] tests/unit/test_channels.py with recording fake SMTP — AC2..AC5
 
 ## Dev Notes
 smtp_factory default: `lambda: smtplib.SMTP(host, port, timeout=30)`; STARTTLS when
@@ -34,7 +34,16 @@ Live-path MIME assertions (To/Cc/subject/both parts), dry-run never-connects, sk
 missing email, failed SMTP → `failed` result (exception captured, not raised).
 
 ## Dev Agent Record
-_(filled during implementation)_
+- `build_adapters` takes the shared Renderer (constructed once per process) — adapters render, they don't own template state.
+- EmailAdapter also implements `send_rollup` now (recipients from `fallback.rollup_recipients`) so E4-S2 only has to call it.
+- WhatsApp stub exposes `build_payload()` publicly — E6-S1 reuses it verbatim and its param mapping is already unit-tested ([name, open, overdue, #oldest, days]).
+- Teams stub renders the card on every call (stub or not) so template regressions surface in daily dry-runs, not in E5.
+- SendResult carries `cc` so the send log records who was manager-CC'd.
 
 ## QA Results
-_(filled at review)_
+- AC1 ✅ protocol + SendResult in base.py; `build_adapters` maps channels.enabled (email→live, teams/whatsapp→stubs).
+- AC2 ✅ `test_live_send_builds_correct_mime` (starttls→login→send_message order, To/Cc/From/Subject, text+html parts); `test_no_escalation_means_no_cc`.
+- AC3 ✅ `test_dry_run_never_touches_smtp` (factory never invoked; detail carries to=/cc=).
+- AC4 ✅ `test_owner_without_email_is_skipped`.
+- AC5 ✅ `test_teams_stub_renders_card`, `test_whatsapp_stub_payload_and_optout` (param mapping + opt-out skip); `test_smtp_failure_returns_failed_not_raises` covers NFR5.
+- Suite: ruff/mypy clean, 80 passed. **Gate: PASS**
