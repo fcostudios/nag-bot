@@ -20,7 +20,7 @@
     &lt;{{ p.owner.email or "no email!" }}&gt; — {{ p.ticket_count }} ticket{{ 's' if p.ticket_count != 1 }}<br>
     <span class="muted">Subject: {{ p.subject }}</span>
   </p>
-  <div style="border:1px solid var(--line);padding:12px;background:#fff;">
+  <div style="border:1px solid var(--border-default);border-radius:var(--radius-card);padding:16px;background:#fff;">
     {{ p.html|safe }}
   </div>
 </div>

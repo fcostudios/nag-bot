@@ -1,0 +1,33 @@
+<!-- @dsCard group="Colors" viewport="700x140" name="Status & surfaces" subtitle="Semantic states plus the page / subtle / dark surface tokens" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; font-family: var(--qph-font-body); background: var(--qph-white); color: var(--qph-gray-700); }
+  .wrap { padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+  .row { display: flex; gap: 10px; }
+  .sw { flex: 1; border-radius: 8px; padding: 10px 12px; min-height: 46px; display: flex; flex-direction: column; justify-content: center; }
+  .nm { font-weight: 700; font-size: 12px; }
+  .hx { font-size: 10px; opacity: .8; text-transform: uppercase; }
+  .bordered { border: 1px solid var(--qph-border); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="row">
+      <div class="sw" style="background:var(--qph-success); color:#fff;"><div class="nm">Success</div><div class="hx">#15c0af</div></div>
+      <div class="sw" style="background:var(--qph-warning); color:var(--qph-gray-700);"><div class="nm">Warning</div><div class="hx">#f9c021</div></div>
+      <div class="sw" style="background:var(--qph-danger); color:#fff;"><div class="nm">Danger</div><div class="hx">#d64545</div></div>
+      <div class="sw" style="background:var(--qph-info); color:#fff;"><div class="nm">Info</div><div class="hx">#003559</div></div>
+    </div>
+    <div class="row">
+      <div class="sw bordered" style="background:var(--qph-white);"><div class="nm">Page / Card</div><div class="hx">#ffffff</div></div>
+      <div class="sw" style="background:var(--qph-bg-subtle);"><div class="nm">Subtle</div><div class="hx">#f2f2f2</div></div>
+      <div class="sw" style="background:var(--qph-ink); color:#fff;"><div class="nm">Dark surface</div><div class="hx">#3d3d3d</div></div>
+      <div class="sw bordered" style="background:var(--qph-white);"><div class="nm">Border</div><div class="hx">#e3e2e2</div></div>
+    </div>
+  </div>
+</body>
+</html>

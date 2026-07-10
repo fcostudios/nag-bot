@@ -1,0 +1,28 @@
+/* ==========================================================================
+   QPH · Spacing & layout — 4px scale
+   ========================================================================== */
+
+:root {
+  --qph-space-1:   0.25rem; /*  4 */
+  --qph-space-2:   0.5rem;  /*  8 */
+  --qph-space-3:   0.75rem; /* 12 */
+  --qph-space-4:   1rem;    /* 16 */
+  --qph-space-5:   1.25rem; /* 20 */
+  --qph-space-6:   1.5rem;  /* 24 */
+  --qph-space-8:   2rem;    /* 32 */
+  --qph-space-10:  2.5rem;  /* 40 */
+  --qph-space-12:  3rem;    /* 48 */
+  --qph-space-16:  4rem;    /* 64 */
+  --qph-space-20:  5rem;    /* 80 */
+
+  /* ---- Layout --------------------------------------------------------- */
+  --qph-container-max:  1200px;
+  --qph-logo-clearspace: 1; /* @kind other */ /* safe zone = 1x isotype bar height */
+
+  /* ---- Semantic spacing aliases --------------------------------------- */
+  --space-inset-card:   var(--qph-space-6);
+  --space-gap-tight:    var(--qph-space-2);
+  --space-gap:          var(--qph-space-4);
+  --space-gap-loose:    var(--qph-space-8);
+  --space-section:      var(--qph-space-16);
+}

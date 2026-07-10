@@ -1,0 +1,27 @@
+<!-- @dsCard group="Type" viewport="700x240" name="Type scale" subtitle="xs → 4xl · 8-step rem ramp, base 16px" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; font-family: var(--qph-font-body); background: var(--qph-white); color: var(--qph-gray-700); }
+  .wrap { padding: 18px 28px; display: flex; flex-direction: column; }
+  .row { display: flex; align-items: baseline; gap: 18px; padding: 5px 0; border-bottom: 1px dashed var(--qph-border); }
+  .row:last-child { border-bottom: 0; }
+  .tk { width: 190px; flex: none; font-size: 11px; color: var(--qph-gray-300); }
+  .tk b { color: var(--qph-gray-500); font-weight: 700; }
+  .sp { color: var(--qph-gray-700); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="row"><div class="tk"><b>4xl</b> · 3.5rem / 56</div><div class="sp" style="font-size:var(--qph-text-4xl);font-weight:900;">Aa</div></div>
+    <div class="row"><div class="tk"><b>3xl</b> · 2.75rem / 44</div><div class="sp" style="font-size:var(--qph-text-3xl);font-weight:900;">Edificio corporativo</div></div>
+    <div class="row"><div class="tk"><b>2xl</b> · 2rem / 32</div><div class="sp" style="font-size:var(--qph-text-2xl);font-weight:700;">Subtítulo destacado</div></div>
+    <div class="row"><div class="tk"><b>xl</b> · 1.5rem / 24</div><div class="sp" style="font-size:var(--qph-text-xl);font-weight:700;">Encabezado de bloque</div></div>
+    <div class="row"><div class="tk"><b>lg / base</b> · 18 / 16</div><div class="sp" style="font-size:var(--qph-text-base);">Cuerpo de lectura en Barlow Regular</div></div>
+    <div class="row"><div class="tk"><b>sm / xs</b> · 14 / 12</div><div class="sp" style="font-size:var(--qph-text-sm);color:var(--qph-gray-300);">Caption y metadatos secundarios</div></div>
+  </div>
+</body>
+</html>

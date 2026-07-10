@@ -1,0 +1,54 @@
+/* ==========================================================================
+   QPH · Typography
+   Barlow for EVERYTHING (titles, UI, body). Josefin Sans Light ONLY for the
+   logo lettering — never in running text.
+   Signature heading style: SECTION (light gray) | TITLE (orange), all caps,
+   Barlow Black.
+   ========================================================================== */
+
+:root {
+  /* ---- Families ------------------------------------------------------- */
+  --qph-font-logo:    "Josefin Sans", system-ui, sans-serif;     /* logo only */
+  --qph-font-display: "Barlow", system-ui, -apple-system, sans-serif;
+  --qph-font-body:    "Barlow", system-ui, -apple-system, sans-serif;
+
+  /* ---- Weights -------------------------------------------------------- */
+  --qph-w-regular:  400; /* @kind font */
+  --qph-w-medium:   500; /* @kind font */
+  --qph-w-semibold: 600; /* @kind font */
+  --qph-w-bold:     700; /* @kind font */
+  --qph-w-black:    900; /* @kind font */ /* brandbook headlines, uppercase */
+
+  /* ---- Type scale (rem, base 16px) ------------------------------------ */
+  --qph-text-xs:   0.75rem;   /* 12 */
+  --qph-text-sm:   0.875rem;  /* 14 */
+  --qph-text-base: 1rem;      /* 16 */
+  --qph-text-lg:   1.125rem;  /* 18 */
+  --qph-text-xl:   1.5rem;    /* 24 */
+  --qph-text-2xl:  2rem;      /* 32 */
+  --qph-text-3xl:  2.75rem;   /* 44 */
+  --qph-text-4xl:  3.5rem;    /* 56 */
+
+  /* ---- Line height ---------------------------------------------------- */
+  --qph-leading-tight:  1.15;
+  --qph-leading-snug:   1.3;
+  --qph-leading-normal: 1.5;
+
+  /* ---- Letter spacing ------------------------------------------------- */
+  --qph-tracking-tight: -0.01em;
+  --qph-tracking-wide:  0.04em; /* uppercase eyebrows / tags */
+
+  /* ======================================================================
+     Semantic aliases
+     ====================================================================== */
+  --font-display: var(--qph-font-display);
+  --font-body:    var(--qph-font-body);
+  --font-logo:    var(--qph-font-logo);
+
+  --text-display: var(--qph-text-4xl);
+  --text-h1:      var(--qph-text-3xl);
+  --text-h2:      var(--qph-text-2xl);
+  --text-h3:      var(--qph-text-xl);
+  --text-body-size: var(--qph-text-base);
+  --text-caption: var(--qph-text-sm);
+}

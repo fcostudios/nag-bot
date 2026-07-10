@@ -1,0 +1,29 @@
+<!-- @dsCard group="Spacing" viewport="700x150" name="Spacing scale" subtitle="4px base — 1 through 16" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; font-family: var(--qph-font-body); background: var(--qph-white); color: var(--qph-gray-700); }
+  .wrap { padding: 22px 28px; display: flex; align-items: flex-end; gap: 18px; }
+  .col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .box { background: var(--qph-orange); border-radius: 3px; width: 100%; }
+  .bar { display: flex; align-items: flex-end; }
+  .lbl { font-size: 11px; color: var(--qph-gray-300); }
+  .lbl b { color: var(--qph-gray-700); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="col"><div class="box" style="width:4px;height:4px;"></div><div class="lbl"><b>1</b><br>4</div></div>
+    <div class="col"><div class="box" style="width:8px;height:8px;"></div><div class="lbl"><b>2</b><br>8</div></div>
+    <div class="col"><div class="box" style="width:12px;height:12px;"></div><div class="lbl"><b>3</b><br>12</div></div>
+    <div class="col"><div class="box" style="width:16px;height:16px;"></div><div class="lbl"><b>4</b><br>16</div></div>
+    <div class="col"><div class="box" style="width:24px;height:24px;"></div><div class="lbl"><b>6</b><br>24</div></div>
+    <div class="col"><div class="box" style="width:32px;height:32px;"></div><div class="lbl"><b>8</b><br>32</div></div>
+    <div class="col"><div class="box" style="width:48px;height:48px;"></div><div class="lbl"><b>12</b><br>48</div></div>
+    <div class="col"><div class="box" style="width:64px;height:64px;"></div><div class="lbl"><b>16</b><br>64</div></div>
+  </div>
+</body>
+</html>

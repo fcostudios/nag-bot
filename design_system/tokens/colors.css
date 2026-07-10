@@ -1,0 +1,64 @@
+/* ==========================================================================
+   QPH · Colors
+   Source: brandbook_qph.pdf (Manual de Identidad Corporativa)
+   Orange is the only general accent; corporate grays build structure.
+   ========================================================================== */
+
+:root {
+  /* ---- Brand / primary ------------------------------------------------ */
+  --qph-orange:        #e7851a; /* principal brand accent */
+  --qph-orange-600:    #c96f12; /* hover / pressed */
+  --qph-orange-100:    #fbe7cf; /* soft fills, chips, focus ring */
+
+  /* ---- Corporate grays (legacy QPH logo bars; structural neutrals) ----- */
+  --qph-gray-100:      #c0bfc0; /* light gray */
+  --qph-gray-300:      #949394; /* medium gray */
+  --qph-gray-500:      #787474; /* gray */
+  --qph-gray-700:      #595756; /* dark gray — primary text */
+  --qph-ink:           #3d3d3d; /* dark surface (presentations) */
+  --qph-black:         #1a1a1a; /* logo negative / strong text */
+  --qph-white:         #ffffff;
+
+  /* ---- Interface neutrals (derived for apps) -------------------------- */
+  --qph-bg:            #ffffff;
+  --qph-bg-subtle:     #f2f2f2; /* light card fill */
+  --qph-border:        #e3e2e2;
+
+  /* ---- Area / department colors --------------------------------------- */
+  /* Use ONLY to organize communication of a corporate service.           */
+  --qph-area-responsabilidad-social: #8467da;
+  --qph-area-tecnologia:             #241d79;
+  --qph-area-nomina:                 #f9c021;
+  --qph-area-proyectos-procesos:     #253237;
+  --qph-area-administracion:         #e7851a; /* = brand orange */
+  --qph-area-seguridad-informacion:  #003559;
+  --qph-area-salud:                  #15c0af;
+
+  /* ---- Status (semantic, aligned to palette) -------------------------- */
+  --qph-success:       #15c0af;
+  --qph-warning:       #f9c021;
+  --qph-danger:        #d64545;
+  --qph-info:          #003559;
+
+  /* ======================================================================
+     Semantic aliases — prefer these in components
+     ====================================================================== */
+  --color-accent:        var(--qph-orange);
+  --color-accent-hover:  var(--qph-orange-600);
+  --color-accent-soft:   var(--qph-orange-100);
+
+  --surface-page:        var(--qph-white);
+  --surface-card:        var(--qph-white);
+  --surface-subtle:      var(--qph-bg-subtle);
+  --surface-dark:        var(--qph-ink);
+
+  --text-strong:         var(--qph-gray-700);
+  --text-body:           var(--qph-gray-700);
+  --text-muted:          var(--qph-gray-300);
+  --text-invert:         var(--qph-white);
+  --text-accent:         var(--qph-orange-600);
+
+  --border-default:      var(--qph-border);
+  --border-strong:       var(--qph-gray-300);
+  --focus-ring:          var(--qph-orange-100);
+}

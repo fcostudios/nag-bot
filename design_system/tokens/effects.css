@@ -1,0 +1,36 @@
+/* ==========================================================================
+   QPH · Radii, shadows, borders, motion
+   Soft shadows tinted with corporate gray — never pure black.
+   ========================================================================== */
+
+:root {
+  /* ---- Corner radii --------------------------------------------------- */
+  --qph-radius-sm:   4px;    /* small inputs */
+  --qph-radius-md:   8px;    /* buttons, inputs */
+  --qph-radius-lg:   16px;   /* cards */
+  --qph-radius-xl:   24px;   /* large surfaces */
+  --qph-radius-pill: 999px;  /* chips / role pills (brand signature) */
+
+  /* ---- Shadows (gray-tinted) ------------------------------------------ */
+  --qph-shadow-sm: 0 1px 2px rgba(89, 87, 86, 0.08);
+  --qph-shadow-md: 0 4px 12px rgba(89, 87, 86, 0.12);
+  --qph-shadow-lg: 0 12px 32px rgba(61, 61, 61, 0.18);
+
+  /* ---- Borders -------------------------------------------------------- */
+  --qph-border-width: 1px;
+  --qph-border-width-strong: 1.5px;
+
+  /* ---- Motion --------------------------------------------------------- */
+  --qph-ease:        cubic-bezier(0.2, 0, 0.2, 1); /* @kind other */
+  --qph-duration:    0.15s; /* @kind other */
+  --qph-duration-lg: 0.25s; /* @kind other */
+
+  /* ---- Semantic aliases ----------------------------------------------- */
+  --radius-control: var(--qph-radius-md);
+  --radius-card:    var(--qph-radius-lg);
+  --radius-pill:    var(--qph-radius-pill);
+  --shadow-card:    var(--qph-shadow-sm);
+  --shadow-raised:  var(--qph-shadow-md);
+  --shadow-overlay: var(--qph-shadow-lg);
+  --transition:     var(--qph-duration) var(--qph-ease);
+}

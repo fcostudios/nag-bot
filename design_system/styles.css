@@ -1,0 +1,11 @@
+/* ==========================================================================
+   QPH · Quito Publishing House — Design System
+   Root entry point. Consumers link THIS file only.
+   Import order: fonts → tokens (colors, type, spacing, effects).
+   ========================================================================== */
+
+@import "assets/fonts.css";
+@import "tokens/colors.css";
+@import "tokens/typography.css";
+@import "tokens/spacing.css";
+@import "tokens/effects.css";

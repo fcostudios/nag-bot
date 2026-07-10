@@ -1,0 +1,29 @@
+<!-- @dsCard group="Brand" viewport="700x150" name="Icon tiles" subtitle="White pictogram on a color rounded square — flat, one figure per icon" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; font-family: var(--qph-font-body); background: var(--qph-white); color: var(--qph-gray-700); }
+  .wrap { padding: 24px 28px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  .tile { width: 56px; height: 56px; border-radius: 14px; display: grid; place-items: center; color: #fff; }
+  .tile svg { width: 28px; height: 28px; stroke: #fff; stroke-width: 2; fill: none; }
+  .lbl { width: 100%; font-size: 11px; color: var(--qph-gray-300); margin-top: 4px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="tile" style="background:var(--qph-orange);"><i data-lucide="bar-chart-3"></i></div>
+    <div class="tile" style="background:var(--qph-area-tecnologia);"><i data-lucide="monitor"></i></div>
+    <div class="tile" style="background:var(--qph-area-salud);"><i data-lucide="heart-pulse"></i></div>
+    <div class="tile" style="background:var(--qph-area-nomina);"><i data-lucide="wallet"></i></div>
+    <div class="tile" style="background:var(--qph-area-seguridad-informacion);"><i data-lucide="shield-check"></i></div>
+    <div class="tile" style="background:var(--qph-gray-500);"><i data-lucide="users"></i></div>
+    <div class="tile" style="background:var(--qph-area-responsabilidad-social);"><i data-lucide="hand-heart"></i></div>
+    <div class="lbl">Lucide icons (CDN) — substitute for the brandbook pictograms. Stroke 2, white, on a color rounded square.</div>
+  </div>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script>lucide.createIcons();</script>
+</body>
+</html>

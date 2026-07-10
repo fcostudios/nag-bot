@@ -1,0 +1,46 @@
+/* QPH · ATISCODE slide template — shared styles.
+   4:3 (1000×750). Dark ink ground, orange accent, white Barlow Black titles.
+   Each slide links ../styles.css for tokens, then this file. */
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { font-family: var(--qph-font-body); background: #1d1d1d; }
+
+.slide {
+  width: 1000px; height: 750px; position: relative; overflow: hidden;
+  background: var(--qph-ink); color: #fff; font-family: var(--qph-font-body);
+}
+.slide.light { background: #fff; color: var(--qph-gray-700); }
+
+/* logo corner */
+.s-logo { position: absolute; top: 34px; left: 40px; z-index: 5; display: flex; align-items: center; gap: 10px; }
+.s-logo .iso { display: flex; flex-direction: column; gap: 3px; position: relative; width: 40px; }
+.s-logo .iso span { height: 5px; border-radius: 1px; }
+.s-logo .iso .spk { position: absolute; top: -6px; left: 6px; display: flex; gap: 2px; align-items: flex-end; }
+.s-logo .iso .spk i { width: 2px; background: var(--qph-orange); display: block; }
+.s-logo .word { font-family: var(--qph-font-logo); font-weight: 300; font-size: 10px; line-height: 1.05; letter-spacing: .04em; text-transform: uppercase; }
+
+/* eyebrow SECTION | TITLE */
+.s-eyebrow { display: flex; align-items: center; gap: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .05em; font-size: 16px; }
+.s-eyebrow .sec { color: var(--qph-gray-100); opacity: .8; }
+.s-eyebrow .bar { width: 3px; height: 1.1em; background: var(--qph-orange); }
+.s-eyebrow .ttl { color: var(--qph-orange); }
+.slide.light .s-eyebrow .sec { color: var(--qph-gray-300); }
+
+.s-title { font-family: var(--qph-font-display); font-weight: 900; text-transform: uppercase; line-height: .98; letter-spacing: -.01em; }
+
+/* decorative arcs/dots */
+.arc { position: absolute; border-radius: 50%; border: 16px solid transparent; }
+.dot { position: absolute; border-radius: 50%; background: var(--qph-orange); }
+
+/* numbered badge */
+.numbadge { width: 56px; height: 56px; background: var(--qph-orange); color: #fff; display: grid; place-items: center; font-family: var(--qph-font-display); font-weight: 900; font-size: 26px; border-radius: 6px; flex: none; }
+
+/* photo placeholder */
+.photo { background: linear-gradient(135deg, #5a5a5a, #2e2e2e); position: relative; overflow: hidden; display: grid; place-items: center; }
+.photo .ph-label { color: rgba(255,255,255,.5); font-size: 13px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; text-align: center; padding: 12px; }
+.photo .veil { position: absolute; inset: 0; background: rgba(61,61,61,.55); }
+
+/* page number */
+.s-pg { position: absolute; bottom: 28px; right: 36px; font-size: 13px; color: var(--qph-gray-100); opacity: .7; font-weight: 700; }
+.slide.light .s-pg { color: var(--qph-gray-300); }

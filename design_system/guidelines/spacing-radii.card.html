@@ -1,0 +1,26 @@
+<!-- @dsCard group="Spacing" viewport="700x150" name="Corner radii" subtitle="sm 4 · md 8 · lg 16 · xl 24 · pill 999" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; font-family: var(--qph-font-body); background: var(--qph-white); color: var(--qph-gray-700); }
+  .wrap { padding: 22px 28px; display: flex; gap: 22px; align-items: flex-end; }
+  .col { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .box { width: 74px; height: 60px; background: var(--qph-bg-subtle); border: 1.5px solid var(--qph-orange); }
+  .pill { width: 110px; height: 38px; border-radius: 999px; }
+  .lbl { font-size: 11px; color: var(--qph-gray-300); text-align: center; }
+  .lbl b { color: var(--qph-gray-700); display: block; font-size: 12px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="col"><div class="box" style="border-radius:4px;"></div><div class="lbl"><b>sm</b>4px</div></div>
+    <div class="col"><div class="box" style="border-radius:8px;"></div><div class="lbl"><b>md</b>8px</div></div>
+    <div class="col"><div class="box" style="border-radius:16px;"></div><div class="lbl"><b>lg</b>16px</div></div>
+    <div class="col"><div class="box" style="border-radius:24px;"></div><div class="lbl"><b>xl</b>24px</div></div>
+    <div class="col"><div class="box pill"></div><div class="lbl"><b>pill</b>999px</div></div>
+  </div>
+</body>
+</html>
