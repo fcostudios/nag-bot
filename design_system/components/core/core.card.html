@@ -1,0 +1,57 @@
+<!-- @dsCard group="Components" viewport="700x340" name="Core — Button, Badge, Pill, Card" subtitle="Actions and primitives" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body { margin: 0; font-family: var(--qph-font-body); background: var(--qph-bg-subtle); color: var(--qph-gray-700); padding: 22px; }
+  .stack { display: flex; flex-direction: column; gap: 18px; }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .label { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--qph-gray-300); font-weight: 700; }
+  h4 { margin: 0 0 4px; font-size: 16px; text-transform: uppercase; font-weight: 700; }
+  p { margin: 0; font-size: 13px; color: var(--qph-gray-300); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<script type="text/babel">
+  const { Button, Badge, Pill, Card } = window.QPHDesignSystem_9bede0;
+  function Demo() {
+    return (
+      <div className="stack">
+        <div>
+          <div className="label" style={{marginBottom:8}}>Buttons</div>
+          <div className="row">
+            <Button variant="primary">Primario</Button>
+            <Button variant="secondary">Secundario</Button>
+            <Button variant="ghost">Ghost</Button>
+            <Button variant="dark">Oscuro</Button>
+            <Button variant="primary" disabled>Deshabilitado</Button>
+            <Button variant="primary" size="sm">Pequeño</Button>
+          </div>
+        </div>
+        <div className="row">
+          <span className="label">Badges</span>
+          <Badge>01</Badge><Badge>02</Badge>
+          <Badge color="var(--qph-area-tecnologia)">03</Badge>
+          <Badge variant="soft">04</Badge>
+          <span className="label" style={{marginLeft:16}}>Pills</span>
+          <Pill>Consultor de RRHH</Pill>
+          <Pill variant="filled" color="var(--qph-area-salud)">Salud</Pill>
+        </div>
+        <Card hover style={{maxWidth:280}}>
+          <h4>Proyectos</h4>
+          <p>Seguimiento de iniciativas del edificio con indicadores en vivo.</p>
+        </Card>
+      </div>
+    );
+  }
+  ReactDOM.createRoot(document.getElementById("root")).render(<Demo />);
+</script>
+</body>
+</html>

@@ -2,22 +2,23 @@
 {{ tier_emoji[tier] }} {{ tier_label[tier] }}
 {%- endmacro %}
 
+{# QPH palette: on_fire=danger, hot=brand orange, aging=warning, fresh=success #}
 {% macro tier_color(tier) -%}
-{%- if tier == Tier.ON_FIRE %}#c62828{% elif tier == Tier.HOT %}#ef6c00{% elif tier == Tier.AGING %}#f9a825{% else %}#2e7d32{% endif -%}
+{%- if tier == Tier.ON_FIRE %}#d64545{% elif tier == Tier.HOT %}#e7851a{% elif tier == Tier.AGING %}#f9c021{% else %}#15c0af{% endif -%}
 {%- endmacro %}
 
 {% macro ticket_row_html(s, show_sla) -%}
 <tr>
   <td style="padding:6px 8px;white-space:nowrap;color:{{ tier_color(s.tier) }};font-weight:bold;">{{ tier_emoji[s.tier] }}</td>
-  <td style="padding:6px 8px;white-space:nowrap;"><a href="{{ s.ticket.url }}" style="color:#1565c0;">#{{ s.ticket.id }}</a></td>
+  <td style="padding:6px 8px;white-space:nowrap;"><a href="{{ s.ticket.url }}" style="color:#c96f12;text-decoration:none;">#{{ s.ticket.id }}</a></td>
   <td style="padding:6px 8px;">{{ s.ticket.title }}</td>
   <td style="padding:6px 8px;text-align:right;white-space:nowrap;">{{ s.metrics.age_bd|days }}</td>
   <td style="padding:6px 8px;text-align:right;white-space:nowrap;">{{ s.metrics.stale_bd|days }}</td>
   {% if show_sla %}
   <td style="padding:6px 8px;white-space:nowrap;">
     {%- if s.metrics.sla_due is none %}—
-    {%- elif s.metrics.sla_status == 'breached' %}<span style="color:#c62828;font-weight:bold;">OVERDUE</span>
-    {%- elif s.metrics.sla_status == 'due_soon' %}<span style="color:#ef6c00;">due {{ s.metrics.sla_due|localdt }}</span>
+    {%- elif s.metrics.sla_status == 'breached' %}<span style="color:#d64545;font-weight:bold;">OVERDUE</span>
+    {%- elif s.metrics.sla_status == 'due_soon' %}<span style="color:#e7851a;">due {{ s.metrics.sla_due|localdt }}</span>
     {%- else %}{{ s.metrics.sla_due|localdt }}
     {%- endif %}
   </td>

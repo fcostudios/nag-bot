@@ -1,0 +1,53 @@
+<!-- @dsCard group="Components" viewport="700x300" name="Brand — Logo, IconTile, AreaTag" subtitle="Brand primitives" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body { margin: 0; font-family: var(--qph-font-body); background: var(--qph-white); color: var(--qph-gray-700); padding: 24px; }
+  .stack { display: grid; gap: 20px; }
+  .row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .dark { background: var(--qph-ink); padding: 14px 18px; border-radius: 12px; display: inline-flex; }
+  .label { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--qph-gray-300); font-weight: 700; width: 100%; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<script type="text/babel">
+  const { Logo, IconTile, AreaTag } = window.QPHDesignSystem_9bede0;
+  function Demo() {
+    return (
+      <div className="stack">
+        <div className="row">
+          <Logo height={44} />
+          <div className="dark"><Logo variant="negative" height={44} /></div>
+        </div>
+        <div className="row">
+          <span className="label">Icon tiles</span>
+          <IconTile color="var(--qph-orange)"><i data-lucide="bar-chart-3"></i></IconTile>
+          <IconTile color="var(--qph-area-tecnologia)"><i data-lucide="monitor"></i></IconTile>
+          <IconTile color="var(--qph-area-salud)"><i data-lucide="heart-pulse"></i></IconTile>
+          <IconTile color="var(--qph-gray-500)"><i data-lucide="users"></i></IconTile>
+        </div>
+        <div className="row">
+          <span className="label">Area tags</span>
+          <AreaTag area="tecnologia" />
+          <AreaTag area="administracion" />
+          <AreaTag area="salud" variant="soft" />
+          <AreaTag area="responsabilidad-social" variant="soft" />
+        </div>
+      </div>
+    );
+  }
+  const root = ReactDOM.createRoot(document.getElementById("root"));
+  root.render(<Demo />);
+  setTimeout(() => window.lucide && window.lucide.createIcons(), 60);
+</script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</body>
+</html>

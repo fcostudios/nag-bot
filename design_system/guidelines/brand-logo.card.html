@@ -1,0 +1,27 @@
+<!-- @dsCard group="Brand" viewport="700x320" name="Logo lockups" subtitle="corporativo. — positive / negative / white-on-orange / mark" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; font-family: var(--qph-font-body); background: var(--qph-white); color: var(--qph-gray-700); }
+  .wrap { padding: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .panel { border-radius: 12px; height: 130px; display: flex; align-items: center; justify-content: center; padding: 24px; position: relative; }
+  .panel img { max-width: 100%; max-height: 44px; object-fit: contain; }
+  .light { background: var(--qph-white); border: 1px solid var(--qph-border); }
+  .dark { background: var(--qph-ink); }
+  .orange { background: var(--qph-orange); }
+  .tag { position: absolute; bottom: 10px; left: 12px; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--qph-gray-300); }
+  .dark .tag, .orange .tag { color: rgba(255,255,255,.75); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="panel light"><img src="../assets/corporativo-logo.png" alt="corporativo. positive"><span class="tag">Positivo · fondo claro</span></div>
+    <div class="panel dark"><img src="../assets/corporativo-logo-negativo.png" alt="corporativo. negative"><span class="tag">Negativo · fondo oscuro</span></div>
+    <div class="panel orange"><img src="../assets/corporativo-logo-blanco.png" alt="corporativo. white"><span class="tag">Blanco · fondo naranja</span></div>
+    <div class="panel light"><img src="../assets/corporativo-mark.png" alt="corporativo mark" style="max-height:56px;"><span class="tag">Isotipo · solo favicon/app-icon</span></div>
+  </div>
+</body>
+</html>
