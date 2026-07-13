@@ -214,3 +214,26 @@ code {
   border-radius: var(--radius-sm);
   font-size: 0.9em;
 }
+
+/* ---- Public wallboard (E3-S6): chrome-less, embeddable, wallboard-legible ---- */
+body.public { background: var(--surface-page); }
+body.public main { max-width: var(--container-max); margin: var(--space-6) auto; }
+
+.eyebrow {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-display); font-weight: 900;
+  text-transform: uppercase; letter-spacing: 0.06em; font-size: 13px;
+  margin: 0 0 var(--space-2);
+}
+.eyebrow .sec { color: var(--text-muted); }
+.eyebrow .ttl { color: var(--color-accent); }
+
+.hero { display: flex; align-items: baseline; gap: var(--space-3); margin: var(--space-4) 0 var(--space-3); }
+.hero strong {
+  font-family: var(--font-display); font-weight: 900; line-height: 1;
+  font-size: clamp(2.5rem, 6vw, 5rem); color: var(--text-strong);
+}
+.hero span { text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); font-weight: 700; }
+
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.refresh-note { margin-top: var(--space-6); font-size: 11px; opacity: 0.8; }

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="refresh" content="60">
+  <title>Team WIP — Corporativo Nagbot</title>
+  <link rel="icon" type="image/png" href="/static/brand/corporativo-mark.png">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="public">
+  <main>
+  <p class="eyebrow"><span class="sec">Corporativo</span> · <span class="ttl">Nagbot</span></p>
+  <h1>Team WIP</h1>
+  {% if run is none or rollup is none %}
+  <div class="empty">
+    <p>Awaiting the first run — no data to show yet.</p>
+  </div>
+  {% else %}
+  <p class="muted">
+    As of {{ run.started_at|localdt }} — run #{{ run.id }}
+    {% if run.dry_run %}<span class="badge dry_run">DRY-RUN</span>{% endif %}
+  </p>
+
+  <p class="hero"><strong>{{ rollup.total_open }}</strong> <span>open tickets</span></p>
+  <div class="distribution" title="tier distribution">
+    {% for tier in Tier %}
+      {% if rollup.distribution[tier] %}
+      <div class="{{ tier.value }}" style="flex:{{ rollup.distribution[tier] }};">
+        {{ tier_emoji[tier] }} {{ rollup.distribution[tier] }}
+      </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  <h2>WIP per person</h2>
+  <div class="table-wrap">
+  <table>
+    <tr>
+      <th>Owner</th><th class="num">Open</th><th>Tiers</th>
+      <th class="num">Oldest</th><th class="num">Worst stale</th>
+    </tr>
+    {% for p in rollup.per_person %}
+    <tr>
+      <td>{{ p.owner_name }}</td>
+      <td class="num">{{ p.total }}</td>
+      <td>{% for tier in Tier %}{% if p.counts[tier] %}<span class="badge {{ tier.value }}">{{ tier_emoji[tier] }} {{ p.counts[tier] }}</span> {% endif %}{% endfor %}</td>
+      <td class="num">{{ p.oldest_age_bd|days }}</td>
+      <td class="num">{{ p.worst_stale_bd|days }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  </div>
+
+  <h2>Oldest tickets</h2>
+  <div class="table-wrap">
+  <table>
+    <tr>
+      <th></th><th>Ticket</th><th>Title</th><th>Owner</th>
+      <th class="num">Age</th><th class="num">No update</th>
+    </tr>
+    {% for s in rollup.leaderboard %}
+    <tr>
+      <td>{{ tier_emoji[Tier(s.tier)] }} {{ tier_label[Tier(s.tier)] }}</td>
+      <td>#{{ s.ticket_id }}{% if s.ticket_id in snoozes %} <span title="snoozed">💤</span>{% endif %}</td>
+      <td><a href="{{ glpi_web_base }}/front/ticket.form.php?id={{ s.ticket_id }}">{{ s.title }}</a></td>
+      <td>{{ s.owner_name }}</td>
+      <td class="num">{{ s.age_bd|days }}</td>
+      <td class="num">{{ s.stale_bd|days }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  </div>
+
+  <p class="muted refresh-note">Auto-refreshing every 60s</p>
+  {% endif %}
+  </main>
+</body>
+</html>

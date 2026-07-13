@@ -41,7 +41,14 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 WEB_DIR = Path(__file__).parent
-AUTH_EXEMPT_PREFIXES = ("/healthz", "/static")
+AUTH_EXEMPT_PREFIXES = ("/healthz", "/static", "/public")
+
+
+def is_auth_exempt(path: str) -> bool:
+    """Exempt a path only on an exact match or a true sub-path (``/static/…``),
+    never a bare-prefix match — so a future ``/publish`` route can't be silently
+    un-authed by the ``/public`` entry."""
+    return any(path == p or path.startswith(p + "/") for p in AUTH_EXEMPT_PREFIXES)
 
 
 def make_jobs(rt: Runtime) -> tuple:
@@ -115,7 +122,7 @@ def create_app(rt: Runtime | None = None, *, with_scheduler: bool = True) -> Fas
 
     @app.middleware("http")
     async def basic_auth(request: Request, call_next):  # type: ignore[no-untyped-def]
-        if request.url.path.startswith(AUTH_EXEMPT_PREFIXES):
+        if is_auth_exempt(request.url.path):
             return await call_next(request)
         if not password:
             return JSONResponse(
@@ -184,6 +191,23 @@ def register_routes(app: FastAPI) -> None:
                 },
             },
         )
+
+    @app.get("/public")
+    def public_dashboard(request: Request) -> Response:
+        run, snaps = rt.store.latest_snapshot()
+        rollup = build_rollup(snaps, now=run.started_at) if run else None
+        resp = templates.TemplateResponse(
+            request,
+            "public.html.j2",
+            {
+                "run": run,
+                "rollup": rollup,
+                "snoozes": {s.ticket_id for s in snaps if s.snoozed},
+            },
+        )
+        # short public cache to absorb load from many embedding viewers (~60s refresh)
+        resp.headers["Cache-Control"] = "public, max-age=30"
+        return resp
 
     @app.get("/wip/{owner_key}")
     def wip_detail(request: Request, owner_key: str) -> Response:
