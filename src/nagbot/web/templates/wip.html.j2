@@ -32,7 +32,7 @@
   </tr>
   {% for p in rollup.per_person %}
   <tr>
-    <td>{{ p.owner_name }}</td>
+    <td><a href="/wip/{{ p.owner_key|urlencode }}">{{ p.owner_name }}</a></td>
     <td class="num">{{ p.total }}</td>
     <td>{% for tier in Tier %}{% if p.counts[tier] %}<span class="badge {{ tier.value }}">{{ tier_emoji[tier] }} {{ p.counts[tier] }}</span> {% endif %}{% endfor %}</td>
     <td class="num">{{ p.oldest_age_bd|days }}</td>

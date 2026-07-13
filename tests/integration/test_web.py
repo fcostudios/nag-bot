@@ -345,3 +345,89 @@ def test_ops_rollup_card(client: TestClient, rt: Runtime) -> None:
     html = client.get("/ops", auth=AUTH).text
     assert "manager rollup" in html
     assert "last sent" in html
+
+
+# --- E3-S5: WIP per-person ticket detail ---------------------------------------------
+
+def test_wip_detail_lists_only_that_owner(client: TestClient, rt: Runtime) -> None:
+    seed_snapshots(rt.store)  # jdoe: #1 on_fire age12, #2 fresh age1; asmith: #3 hot
+    html = client.get("/wip/tech:jdoe", auth=AUTH).text
+    assert "Juan Doe" in html
+    # both of jdoe's tickets present with GLPI deep links...
+    assert "id=1" in html and "id=2" in html
+    # ...and the other owner's ticket is absent
+    assert "id=3" not in html
+    assert "Ana Smith" not in html
+    # AC2: worst-first — on_fire (#1) appears before fresh (#2)
+    assert html.index("id=1") < html.index("id=2")
+
+
+def test_wip_detail_shows_snooze_marker(client: TestClient, rt: Runtime) -> None:
+    seed_snapshots(rt.store)  # asmith's ticket #3 is snoozed
+    html = client.get("/wip/tech:asmith", auth=AUTH).text
+    assert "id=3" in html
+    assert "💤" in html
+
+
+def test_wip_dashboard_links_to_detail(client: TestClient, rt: Runtime) -> None:
+    seed_snapshots(rt.store)
+    html = client.get("/", auth=AUTH).text
+    # owner name cell now links to the drill-down, url-encoded key
+    assert 'href="/wip/tech%3Ajdoe"' in html
+
+
+def test_wip_detail_url_encoded_owner_with_space(client: TestClient, rt: Runtime) -> None:
+    rid = seed_snapshots(rt.store)
+    rt.store.save_snapshots([
+        SnapshotRow(
+            run_id=rid, ticket_id=99, title="Group ticket", status=2,
+            date_opened=NOW, date_mod=NOW, sla_due=None,
+            owner_key="group:Service Desk", owner_name="Service Desk",
+            tier="hot", age_bd=4, stale_bd=3, sla_status="no_sla", snoozed=False,
+        )
+    ])
+    # dashboard link is encoded (space -> %20, colon -> %3A)
+    home = client.get("/", auth=AUTH).text
+    assert "/wip/group%3AService%20Desk" in home
+    # and the encoded path resolves to that owner's ticket
+    detail = client.get("/wip/group%3AService%20Desk", auth=AUTH).text
+    assert "id=99" in detail and "Service Desk" in detail
+
+
+def test_wip_detail_unknown_owner_empty_state(client: TestClient, rt: Runtime) -> None:
+    seed_snapshots(rt.store)
+    resp = client.get("/wip/tech:nobody", auth=AUTH)
+    assert resp.status_code == 200
+    assert "No open tickets" in resp.text
+
+
+def test_wip_detail_no_snapshot_empty_state(client: TestClient) -> None:
+    resp = client.get("/wip/tech:jdoe", auth=AUTH)
+    assert resp.status_code == 200
+    assert "No" in resp.text  # renders empty state, not a 500
+
+
+def test_wip_detail_requires_auth(client: TestClient) -> None:
+    resp = client.get("/wip/tech:jdoe")
+    assert resp.status_code == 401
+    assert resp.headers["WWW-Authenticate"] == 'Basic realm="nagbot"'
+
+
+def test_wip_detail_escapes_html_xss(client: TestClient, rt: Runtime) -> None:
+    """Stored (title/owner_name) and reflected (owner_key) values must be HTML-escaped."""
+    rid = seed_snapshots(rt.store)
+    rt.store.save_snapshots([
+        SnapshotRow(
+            run_id=rid, ticket_id=77, title="<img src=x onerror=alert(1)>", status=2,
+            date_opened=NOW, date_mod=NOW, sla_due=None,
+            owner_key="tech:evil", owner_name="Evil <b>Doe</b>",
+            tier="on_fire", age_bd=5, stale_bd=3, sla_status="no_sla", snoozed=False,
+        )
+    ])
+    # stored XSS: title/owner_name escaped, not rendered as live markup
+    stored = client.get("/wip/tech:evil", auth=AUTH).text
+    assert "<img src=x onerror=alert(1)>" not in stored
+    assert "&lt;img src=x onerror=alert(1)&gt;" in stored
+    # reflected XSS: unknown owner_key echoed into the page must be escaped
+    reflected = client.get('/wip/"><script>alert(1)</script>', auth=AUTH).text
+    assert "<script>alert(1)</script>" not in reflected
