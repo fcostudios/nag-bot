@@ -1,6 +1,6 @@
 ---
 name: qph-design
-description: Use this skill to generate well-branded interfaces and assets for Quito Publishing House (QPH), either for production or throwaway prototypes/mocks/etc. Contains essential design guidelines, colors, type, fonts, assets, and UI kit components for prototyping.
+description: Use this skill to generate well-branded interfaces and assets for Corporativo, either for production or throwaway prototypes/mocks/etc. Contains essential design guidelines, colors, type, fonts, assets, and UI kit components for prototyping.
 user-invocable: true
 ---
 
@@ -26,4 +26,4 @@ If the user invokes this skill without any other guidance, ask them what they wa
 - **Barlow** for everything; the logo wordmark is fixed artwork — never retype it.
 - Always use the full **"corporativo."** wordmark (`assets/corporativo-logo*.png`): positive on light, negativo on dark, blanco on orange; the infinity mark alone only at favicon sizes. Never deform/recolor/rotate. Legacy QPH bars lockup is deprecated.
 - Clean and spacious. No emoji. No gradients (except the photo veil on covers). Soft gray-tinted shadows.
-- Write the name as "Quito Publishing House" or "QPH".
+- Write the name as "Corporativo".
