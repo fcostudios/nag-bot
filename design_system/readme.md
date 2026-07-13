@@ -1,6 +1,6 @@
-# QPH · Quito Publishing House — Design System
+# Corporativo — Design System
 
-A design system for **Quito Publishing House (QPH)**, a corporate building ("edificio corporativo") that houses several companies and shared services. The imagotype represents the **building** (isotype = the stacked skyline bars) plus the **name** (logotype). The brand speaks to a young audience: **orange** carries optimism, sociability and creativity; the **corporate grays** add neutrality, quality, sophistication and knowledge.
+A design system for **Corporativo**, a corporate building ("edificio corporativo") that houses several companies and shared services. The imagotype represents the **building** (isotype = the stacked skyline bars) plus the **name** (logotype). The brand speaks to a young audience: **orange** carries optimism, sociability and creativity; the **corporate grays** add neutrality, quality, sophistication and knowledge.
 
 QPH is an **umbrella brand**. Inside it live sub-brands (e.g. Kickoff, Opina, Right Angle Media, PPM, Focus), each with its own colors. **Never mix** a sub-brand's colors with QPH's unless the piece explicitly belongs to that company.
 
@@ -34,7 +34,7 @@ This design system was authored from the following materials (the reader may not
 - **Logo:** the **"corporativo."** wordmark (June 2026 rebrand) — orange infinity **"co" ligature**, gray lowercase lettering, final **orange period**. Horizontal, never deformed/rotated/recolored/retyped. Use `assets/corporativo-logo.png` on light, `-negativo` on dark, `-blanco` on orange/colored; the mark alone (`corporativo-mark.png`) only at favicon/app-icon sizes. The legacy QPH bars imagotype (`assets/qph-logo-*.png`) is deprecated — don't use it in new pieces.
 - **Color:** orange `#e7851a` is the single general accent; corporate grays (`#c0bfc0`, `#949394`, `#787474`, `#595756`) build structure. Each service area has its own accent color — use it only for that area's communications.
 - **Type:** **Barlow** for everything (titles, UI, body). **Josefin Sans** Light only for the logo lettering.
-- **Name in writing:** "Quito Publishing House" or "QPH" — never "Qph" or lowercased.
+- **Name in writing:** "Corporativo" — never lowercased.
 - **Maintenance cadence:** comunicados every 6 months; presentations & bienvenidas yearly.
 
 ---
@@ -43,7 +43,7 @@ This design system was authored from the following materials (the reader may not
 
 - **Language:** Spanish (Ecuador). Professional but warm and optimistic — aimed at a young workforce.
 - **Voice / person:** Institutional but human. Communications often address the collective ("el edificio", "los colaboradores"). Welcome pieces speak *to* and *about* the person ("BIENVENIDA/O", the new colaborador's name). Avoid stiff bureaucratic tone.
-- **Casing:** Headlines are **UPPERCASE** Barlow Black — this is the brandbook's signature. Body is sentence case. The brand name is title case ("Quito Publishing House"); initials uppercase ("QPH"). Area hashtags are uppercase with `#`.
+- **Casing:** Headlines are **UPPERCASE** Barlow Black — this is the brandbook's signature. Body is sentence case. The brand name is title case ("Corporativo"). Area hashtags are uppercase with `#`.
 - **Exact comunicado hashtags** (verified from the brandbook): `#ADMINISTRACIÓN` · `#RSE` (Responsabilidad Social) · `#TECNOLOGÍA` · `#NÓMINA` · `#PROYECTOSYPROCESOS` · `#SEGURIDAD_INFORMACIÓN` · `#SALUD`. Each pairs with `correo@qph.com.ec` and a "Más información" call-to-action.
 - **Signature heading pattern:** `SECCIÓN | TÍTULO` — a light-gray section label, an orange bar, then the title in orange, all caps. Reuse it for section headers everywhere.
 - **Punctuation as decoration:** large quotation marks (" ") frame comunicado messages, in orange or the area color.
