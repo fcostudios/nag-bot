@@ -431,3 +431,75 @@ def test_wip_detail_escapes_html_xss(client: TestClient, rt: Runtime) -> None:
     # reflected XSS: unknown owner_key echoed into the page must be escaped
     reflected = client.get('/wip/"><script>alert(1)</script>', auth=AUTH).text
     assert "<script>alert(1)</script>" not in reflected
+
+
+# --- E3-S6: public embeddable WIP wallboard ------------------------------------------
+
+def test_public_dashboard_no_auth(client: TestClient, rt: Runtime) -> None:
+    seed_snapshots(rt.store)
+    resp = client.get("/public")  # no auth header
+    assert resp.status_code == 200
+    body = resp.text
+    assert "Juan Doe" in body           # owner name
+    assert "Ticket 1" in body           # a ticket title
+    assert "open tickets" in body
+
+
+def test_public_dashboard_public_when_password_unset(tmp_path: Path) -> None:
+    rt = make_runtime(tmp_path, password=None)
+    seed_snapshots(rt.store)
+    client = TestClient(create_app(rt, with_scheduler=False))
+    assert client.get("/", auth=AUTH).status_code == 503     # internal gated
+    assert client.get("/public").status_code == 200          # public still serves
+
+
+def test_public_dashboard_is_chromeless(client: TestClient, rt: Runtime) -> None:
+    seed_snapshots(rt.store)
+    body = client.get("/public").text
+    assert 'href="/ops"' not in body
+    assert 'href="/preview"' not in body
+    assert "/wip/" not in body          # no drill-down link into authenticated area
+
+
+def test_public_dashboard_framing_allowed(client: TestClient, rt: Runtime) -> None:
+    seed_snapshots(rt.store)
+    resp = client.get("/public")
+    xfo = resp.headers.get("x-frame-options", "")
+    assert xfo.upper() not in ("DENY", "SAMEORIGIN")
+
+
+def test_public_dashboard_autorefresh_and_cache(client: TestClient, rt: Runtime) -> None:
+    seed_snapshots(rt.store)
+    resp = client.get("/public")
+    assert 'http-equiv="refresh"' in resp.text
+    assert "max-age" in resp.headers.get("cache-control", "")
+
+
+def test_public_dashboard_escapes_html(client: TestClient, rt: Runtime) -> None:
+    rid = seed_snapshots(rt.store)
+    rt.store.save_snapshots([
+        SnapshotRow(
+            run_id=rid, ticket_id=88, title="<img src=x onerror=alert(1)>", status=2,
+            date_opened=NOW, date_mod=NOW, sla_due=None,
+            owner_key="tech:jdoe", owner_name="Juan Doe",
+            tier="on_fire", age_bd=9, stale_bd=9, sla_status="no_sla", snoozed=False,
+        )
+    ])
+    body = client.get("/public").text
+    assert "<img src=x onerror=alert(1)>" not in body
+    assert "&lt;img src=x onerror=alert(1)&gt;" in body
+
+
+def test_public_dashboard_empty_state(client: TestClient) -> None:
+    resp = client.get("/public")
+    assert resp.status_code == 200
+    assert "wait" in resp.text.lower() or "no data" in resp.text.lower()
+
+
+def test_auth_exemption_is_not_bare_prefix(client: TestClient) -> None:
+    """A path merely starting with an exempt prefix (e.g. /publicfoo) must NOT be
+    exempt — it requires auth like any other route (hardening, E3-S6 review)."""
+    assert client.get("/public").status_code in (200, )        # exact match exempt
+    assert client.get("/publicfoo").status_code == 401          # bare-prefix NOT exempt
+    assert client.get("/healthzz").status_code == 401
+    assert client.get("/static/style.css").status_code == 200   # true sub-path still exempt
