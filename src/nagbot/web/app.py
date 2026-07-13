@@ -20,6 +20,7 @@ from fastapi.templating import Jinja2Templates
 
 from nagbot import __version__
 from nagbot.digest.builder import build_rollup
+from nagbot.engine.tiers import TIER_ORDER, Tier
 from nagbot.run import (
     _RUN_LOCK,
     build_all_digests,
@@ -68,6 +69,10 @@ def _check_basic_auth(header: str | None, password: str) -> bool:
 
 def make_templates(rt: Runtime) -> Jinja2Templates:
     templates = Jinja2Templates(directory=str(WEB_DIR / "templates"))
+    # Force HTML autoescaping: Starlette's default select_autoescape() only escapes
+    # .html/.xml, so our ".html.j2" templates would render GLPI titles / owner names /
+    # reflected path params unescaped (XSS). Trusted pre-rendered HTML uses |safe.
+    templates.env.autoescape = True
     # share the digest renderer's filters/globals so badges and dates match emails
     templates.env.filters.update(rt.renderer.env.filters)
     templates.env.globals.update(rt.renderer.env.globals)
@@ -174,6 +179,28 @@ def register_routes(app: FastAPI) -> None:
                 "rollup": rollup,
                 "snapshots": snaps,
                 "snoozes": {s.ticket_id for s in snaps if s.snoozed},
+                "escalated": {
+                    e.ticket_id for e in rt.store.escalations() if e.escalated_at
+                },
+            },
+        )
+
+    @app.get("/wip/{owner_key}")
+    def wip_detail(request: Request, owner_key: str) -> Response:
+        run, snaps = rt.store.latest_snapshot()
+        owner_snaps = [s for s in snaps if s.owner_key == owner_key] if run else []
+        # Worst-first: tier severity, then oldest — matches digest ordering.
+        owner_snaps.sort(key=lambda s: (TIER_ORDER[Tier(s.tier)], -s.age_bd))
+        owner_name = owner_snaps[0].owner_name if owner_snaps else owner_key
+        return templates.TemplateResponse(
+            request,
+            "wip_detail.html.j2",
+            {
+                "run": run,
+                "owner_key": owner_key,
+                "owner_name": owner_name,
+                "snapshots": owner_snaps,
+                "snoozes": {s.ticket_id for s in owner_snaps if s.snoozed},
                 "escalated": {
                     e.ticket_id for e in rt.store.escalations() if e.escalated_at
                 },

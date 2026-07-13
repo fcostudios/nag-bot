@@ -1,0 +1,42 @@
+{% extends "base.html.j2" %}
+{% block title %}{{ owner_name }} — WIP — GLPI Nagbot{% endblock %}
+{% block content %}
+<p class="muted"><a href="/">← Back to WIP</a></p>
+<h1>{{ owner_name }}</h1>
+{% if run is none or snapshots|length == 0 %}
+<div class="empty">
+  {% if run is none %}
+  <p>No runs recorded yet — the nagbot hasn't completed a run.</p>
+  {% else %}
+  <p>No open tickets for this owner as of run #{{ run.id }}.</p>
+  {% endif %}
+  <p><a href="/">Back to the WIP dashboard</a></p>
+</div>
+{% else %}
+<p class="muted">
+  As of {{ run.started_at|localdt }} — run #{{ run.id }}
+  {% if run.dry_run %}<span class="badge dry_run">DRY-RUN</span>{% endif %}
+</p>
+
+<p><strong>{{ snapshots|length }}</strong> open ticket{{ "s" if snapshots|length != 1 else "" }}</p>
+
+<table>
+  <tr>
+    <th></th><th>Ticket</th><th>Title</th>
+    <th class="num">Age</th><th class="num">No update</th><th>SLA</th>
+  </tr>
+  {% for s in snapshots %}
+  <tr>
+    <td>{{ tier_emoji[Tier(s.tier)] }} {{ tier_label[Tier(s.tier)] }}</td>
+    <td><a href="/tickets/{{ s.ticket_id }}">#{{ s.ticket_id }}</a>
+        {% if s.ticket_id in snoozes %}<span title="snoozed">💤</span>{% endif %}
+        {% if s.ticket_id in escalated %}<span title="manager CC'd">⚠️</span>{% endif %}</td>
+    <td><a href="{{ glpi_web_base }}/front/ticket.form.php?id={{ s.ticket_id }}">{{ s.title }}</a></td>
+    <td class="num">{{ s.age_bd|days }}</td>
+    <td class="num">{{ s.stale_bd|days }}</td>
+    <td>{% if s.sla_status and s.sla_status != "no_sla" %}{{ s.sla_status|replace("_", " ") }}{% endif %}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endif %}
+{% endblock %}
