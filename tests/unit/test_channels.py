@@ -384,3 +384,32 @@ def test_begin_run_resets_cap_between_runs() -> None:
     assert adapter.send_digest(make_digest(owner=wa_owner(2)), dry_run=False).status == "skipped"
     adapter.begin_run()  # next morning
     assert adapter.send_digest(make_digest(owner=wa_owner(3)), dry_run=False).status == "sent"
+
+
+# --- E7-S5: Teams send_alert (escalation fallback) ---------------------------------
+from nagbot.channels.base import EscalationAlert  # noqa: E402
+
+_ALERT = EscalationAlert(recipient="+593999999991", text="P0 payments down #44968")
+
+
+@respx.mock
+def test_teams_send_alert_posts_card() -> None:
+    route = respx.post(WEBHOOK).mock(return_value=httpx.Response(202))
+    res = TeamsAdapter(webhook_url=WEBHOOK).send_alert(_ALERT, dry_run=False)
+    assert res.status == "sent"
+    body = route.calls[0].request.content
+    assert b"P0 payments down" in body and b"P0 escalation" in body
+
+
+def test_teams_send_alert_dry_run_no_network() -> None:
+    assert TeamsAdapter(webhook_url=WEBHOOK).send_alert(_ALERT, dry_run=True).status == "dry_run"
+
+
+def test_teams_send_alert_skipped_without_webhook() -> None:
+    assert TeamsAdapter().send_alert(_ALERT, dry_run=False).status == "skipped"
+
+
+@respx.mock
+def test_teams_send_alert_failed_on_400() -> None:
+    respx.post(WEBHOOK).mock(return_value=httpx.Response(400, text="bad"))
+    assert TeamsAdapter(webhook_url=WEBHOOK).send_alert(_ALERT, dry_run=False).status == "failed"

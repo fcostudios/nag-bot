@@ -13,7 +13,7 @@ from typing import Any
 
 import httpx
 
-from nagbot.channels.base import SendResult
+from nagbot.channels.base import EscalationAlert, SendResult
 from nagbot.digest.builder import Digest, Rollup
 from nagbot.digest.renderer import Renderer
 
@@ -40,7 +40,7 @@ class TeamsAdapter:
 
     def __init__(
         self,
-        renderer: Renderer,
+        renderer: Renderer | None = None,
         webhook_url: str = "",
         *,
         http: httpx.Client | None = None,
@@ -54,6 +54,7 @@ class TeamsAdapter:
     # -- digest ------------------------------------------------------------------
 
     def send_digest(self, digest: Digest, *, dry_run: bool) -> SendResult:
+        assert self.renderer is not None, "digest sends require a renderer"
         card = self.renderer.teams_card(digest)  # render first — errors surface even dry
         recipient = digest.owner.teams_id or digest.owner.key
         mention_note = "" if digest.owner.teams_id else " (no teams_id — card sent unmentioned)"
@@ -66,6 +67,36 @@ class TeamsAdapter:
                 self.name, recipient, "skipped", detail="TEAMS_WEBHOOK_URL not configured"
             )
         return self._post(card, recipient, mention_note)
+
+    # -- escalation alert (E7-S5: Teams as the always-on P0 fallback) ---------------
+
+    def send_alert(self, alert: EscalationAlert, *, dry_run: bool) -> SendResult:
+        card = self._alert_card(alert.text)
+        recipient = alert.recipient or "channel"
+        if dry_run:
+            return SendResult(self.name, recipient, "dry_run", detail="alert card rendered")
+        if not self.webhook_url:
+            return SendResult(
+                self.name, recipient, "skipped", detail="TEAMS_WEBHOOK_URL not configured"
+            )
+        return self._post(card, recipient, "")
+
+    def _alert_card(self, text: str) -> dict[str, Any]:
+        return {
+            "type": "AdaptiveCard",
+            "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+            "version": "1.4",
+            "body": [
+                {
+                    "type": "TextBlock",
+                    "size": "Large",
+                    "weight": "Bolder",
+                    "color": "Attention",
+                    "text": "🔴 P0 escalation",
+                },
+                {"type": "TextBlock", "wrap": True, "text": text},
+            ],
+        }
 
     # -- rollup ---------------------------------------------------------------------
 
@@ -80,6 +111,7 @@ class TeamsAdapter:
         return self._post(card, "channel", "")
 
     def _rollup_card(self, rollup: Rollup) -> dict[str, Any]:
+        assert self.renderer is not None, "rollup sends require a renderer"
         facts = [
             {
                 "title": p.owner_name,

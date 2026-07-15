@@ -85,3 +85,11 @@ def test_openwa_error_body_failed() -> None:
     )
     res = OpenWaAdapter(URL).send_alert(ALERT, dry_run=False)
     assert res.status == "failed"
+
+
+@respx.mock
+def test_openwa_timeout_is_failed_not_raises() -> None:
+    # a hung sidecar (read timeout) must degrade to `failed` so dispatch falls to Teams
+    respx.post(f"{URL}/sendText").mock(side_effect=httpx.ReadTimeout("slow"))
+    res = OpenWaAdapter(URL).send_alert(ALERT, dry_run=False)
+    assert res.status == "failed"

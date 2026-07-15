@@ -68,15 +68,23 @@ def fetch_and_score(
     return scored
 
 
-def build_alert_adapters(cfg: RuntimeConfig) -> list[object]:
-    """Adapters for the escalation alert channels (AD-3). OpenWA only for now;
-    Teams is added in E7-S5."""
+def build_alert_adapters(cfg: RuntimeConfig, renderer: object | None = None) -> list[object]:
+    """Adapters for the escalation alert channels, in the configured order (AD-3).
+    OpenWA is primary; Teams is the always-on fallback when OpenWA fails/times out."""
     from nagbot.channels.openwa import OpenWaAdapter
+    from nagbot.channels.teams import TeamsAdapter
 
     adapters: list[object] = []
     for name in cfg.app.escalation.alert_channels:
         if name == "openwa":
             adapters.append(OpenWaAdapter.from_config(cfg))
+        elif name == "teams":
+            webhook = (
+                cfg.env.teams_webhook_url.get_secret_value()
+                if cfg.env.teams_webhook_url
+                else ""
+            )
+            adapters.append(TeamsAdapter(renderer, webhook))  # type: ignore[arg-type]
     return adapters
 
 
