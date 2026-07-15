@@ -31,6 +31,10 @@ CANONICAL: dict[str, int] = {
     "tech": 5,
     "group": 8,
     "time_to_resolve": 18,
+    "priority": 3,
+    "urgency": 10,
+    "impact": 11,
+    "category": 7,
 }
 
 # (table, field) signatures used to recognize each logical field in listSearchOptions.
@@ -43,6 +47,11 @@ _SIGNATURES: dict[str, tuple[str, str]] = {
     "tech": ("glpi_users", "name"),
     "group": ("glpi_groups", "completename"),
     "time_to_resolve": ("glpi_tickets", "time_to_resolve"),
+    # E7-S2 — P0-detection fields
+    "priority": ("glpi_tickets", "priority"),
+    "urgency": ("glpi_tickets", "urgency"),
+    "impact": ("glpi_tickets", "impact"),
+    "category": ("glpi_itilcategories", "completename"),
 }
 
 # Disambiguators for signatures that match several options (requester vs technician...).
@@ -162,6 +171,13 @@ class FieldMap:
         def cell(name: str) -> object:
             return row.get(str(self.ids[name]))
 
+        def cell_int(name: str) -> int:
+            raw = cell(name)
+            try:
+                return int(str(raw)) if raw not in (None, "") else 0
+            except (TypeError, ValueError):
+                return 0
+
         ticket_id = int(str(cell("id")))
         opened = parse_glpi_datetime(str(cell("date_opened") or "") or None, server_tz)
         mod = parse_glpi_datetime(str(cell("date_mod") or "") or None, server_tz)
@@ -178,4 +194,8 @@ class FieldMap:
             tech_names=_as_list(cell("tech")),
             group_names=_as_list(cell("group")),
             url=f"{web_base}/front/ticket.form.php?id={ticket_id}",
+            priority=cell_int("priority"),
+            urgency=cell_int("urgency"),
+            impact=cell_int("impact"),
+            category=str(cell("category") or ""),
         )

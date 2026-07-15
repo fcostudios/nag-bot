@@ -28,6 +28,11 @@ class Ticket(BaseModel):
     tech_names: list[str] = []
     group_names: list[str] = []
     url: str = ""
+    # E7-S2 — severity fields for P0 detection (safe defaults; often unset in GLPI)
+    priority: int = 0
+    urgency: int = 0
+    impact: int = 0
+    category: str = ""
 
     @property
     def status_label(self) -> str:
