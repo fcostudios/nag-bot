@@ -4,6 +4,10 @@ Nagbot can page a person about a P0 ticket over WhatsApp (and, later, call them)
 that reaches staff on their personal phones, two things must happen before it is turned on:
 a one-time **transparency notice** to the team, and a short operator checklist.
 
+> This is the **operator go-live** guide. For how the subsystem actually works — the state
+> machine, every config knob, the never-cry-wolf guarantees, failure modes and what to
+> monitor — see the **[engineering reference](e7-escalation.md)**.
+
 ## 1. Transparency notice (give this to staff once, on the record)
 
 > **Heads-up: automated P0 alerts.** For tickets marked **P0** (a critical incident — a core
@@ -29,9 +33,14 @@ will not page anyone until this flag is set** (nagbot logs a warning and stays s
 4. **P0 marking convention** — brief triage/operators: a genuine P0 must be set to **priority
    5 or 6 (Alta / Muy alta)** in GLPI. Nagbot escalates on the configured rule (default
    `priority >= 5`); it escalates **nothing** until a real P0 is marked that way.
-5. **Optional fallback** — set `escalation.alert_channels: [openwa, teams]` so a P0 falls
-   through to Teams if the OpenWA session is down/banned.
-6. **Flip the two flags** — `escalation.enabled: true` **and**
+5. **Fallback (default on)** — `escalation.alert_channels: [openwa, teams]` (the default) so
+   a P0 falls through to Teams if the OpenWA session is down/banned. Requires `TEAMS_WEBHOOK_URL`.
+6. **Ban-avoidance cap** — `escalation.max_alerts_per_tick` (default 10) caps unofficial
+   sends per tick; overflow defers to the next tick (never dropped). Leave the default unless
+   you expect many simultaneous P0s.
+7. **Stale-ack re-arm** — `escalation.ack_grace_minutes` (default 30): a ticket that's still
+   P0 this long after someone replied "on it" re-arms and pages again. Tune to your response SLO.
+8. **Flip the two flags** — `escalation.enabled: true` **and**
    `escalation.transparency_notice_given: true`. Keep `NAGBOT_DRY_RUN` / `channels.dry_run` as
    your safety net until you've watched a real P0 flow end to end.
 

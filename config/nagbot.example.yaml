@@ -27,6 +27,23 @@ channels:
   enabled: [email]          # later: [email, teams, whatsapp]
   whatsapp_max_per_run: 20  # Epic 6 rate cap
 
+# Epic 7 — urgent P0 escalation (pages the owner on WhatsApp, climbs the chain).
+# Ships DISABLED and safe. Read docs/e7-escalation.md before enabling, and follow the
+# go-live checklist + staff notice in docs/e7-escalation-runbook.md.
+escalation:
+  enabled: false                       # master switch
+  transparency_notice_given: false     # attest staff were notified — BOTH required to page
+  p0_rule:                             # OR-of-AND over GLPI fields; ships as: priority >= 5
+    - - { field: priority, op: ">=", value: 5 }
+  dwell_minutes: 5.0                   # minutes at a rung before climbing
+  cadence_seconds: 60                  # how often the escalation tick runs
+  default_triage: null                 # final rung: an owners-key or an E.164 number
+  alert_channels: [openwa, teams]      # ordered; Teams is the always-on fallback
+  alert_send_timeout: 15               # per-send HTTP timeout (s); hung OpenWA → Teams
+  max_alerts_per_tick: 10              # ban-avoidance cap on unofficial sends; overflow defers
+  ack_grace_minutes: 30                # re-arm a still-P0 escalation this long after a stale "on it"
+  ack_ttl_minutes: 120                 # retain an unmatched inbound ack this long, then sweep
+
 glpi:
   server_timezone: America/Guayaquil   # tz of the naive datetimes GLPI returns
   page_size: 100
