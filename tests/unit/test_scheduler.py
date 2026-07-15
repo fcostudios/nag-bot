@@ -29,3 +29,22 @@ def test_scheduler_registers_both_crons() -> None:
     assert fields["hour"] == "8" and fields["day_of_week"] == "mon-fri"
     rollup_fields = {f.name: str(f) for f in jobs["rollup"].trigger.fields}
     assert rollup_fields["day_of_week"] == "mon" and rollup_fields["minute"] == "30"
+
+
+def test_escalation_job_added_only_when_enabled() -> None:
+    cfg = RuntimeConfig(
+        env=make_cfg().env,
+        app=AppConfig.model_validate({"escalation": {"enabled": True, "cadence_seconds": 30}}),
+        dry_run=True,
+    )
+    scheduler = build_scheduler(cfg, lambda: None, lambda: None, lambda: None)
+    jobs = {job.id: job for job in scheduler.get_jobs()}
+    assert "escalation" in jobs
+    assert jobs["escalation"].max_instances == 1
+    assert jobs["escalation"].trigger.interval.total_seconds() == 30
+
+
+def test_no_escalation_job_when_disabled() -> None:
+    # default AppConfig → escalation.enabled is False → no job even if one is passed
+    scheduler = build_scheduler(make_cfg(), lambda: None, lambda: None, lambda: None)
+    assert "escalation" not in {job.id for job in scheduler.get_jobs()}

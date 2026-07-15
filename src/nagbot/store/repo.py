@@ -11,6 +11,7 @@ import threading
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
+from typing import Any
 
 from nagbot.store.db import connect, migrate
 
@@ -87,6 +88,37 @@ class EscalationRow:
     first_red_at: datetime | None
     last_red_date: date | None
     escalated_at: datetime | None
+
+
+@dataclass(frozen=True)
+class P0EscalationRow:
+    """E7-S3 per-ticket P0 escalation state (single-writer: the escalation engine)."""
+
+    ticket_id: int
+    p0_detected_at: datetime
+    current_rung: int = 0
+    last_notified_at: datetime | None = None
+    acknowledged_at: datetime | None = None
+    acknowledged_by: str | None = None
+    stopped_reason: str | None = None
+    stopped_at: datetime | None = None
+
+
+def _row_to_p0(d: dict[str, Any]) -> P0EscalationRow:
+    def s(key: str) -> str | None:
+        v = d.get(key)
+        return str(v) if v is not None else None
+
+    return P0EscalationRow(
+        ticket_id=int(d["ticket_id"]),
+        p0_detected_at=_parse_dt(s("p0_detected_at")) or datetime.now(UTC),
+        current_rung=int(d["current_rung"]),
+        last_notified_at=_parse_dt(s("last_notified_at")),
+        acknowledged_at=_parse_dt(s("acknowledged_at")),
+        acknowledged_by=s("acknowledged_by"),
+        stopped_reason=s("stopped_reason"),
+        stopped_at=_parse_dt(s("stopped_at")),
+    )
 
 
 class Store:
@@ -448,6 +480,51 @@ class Store:
             )
             for d in (dict(r) for r in rows)
         ]
+
+    # -- P0 escalations (E7-S3; single-writer = escalation engine) -------------------
+
+    def active_p0_escalations(self) -> list[P0EscalationRow]:
+        # Locked read: this runs on the escalation thread against the connection shared
+        # with the digest writer; the lock closes the concurrent-use window.
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM p0_escalations WHERE stopped_at IS NULL ORDER BY p0_detected_at"
+            ).fetchall()
+        return [_row_to_p0(dict(r)) for r in rows]
+
+    def upsert_p0_escalation(self, row: P0EscalationRow) -> None:
+        with self._lock, self._conn as conn:
+            conn.execute(
+                """INSERT OR REPLACE INTO p0_escalations
+                   (ticket_id, p0_detected_at, current_rung, last_notified_at,
+                    acknowledged_at, acknowledged_by, stopped_reason, stopped_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    row.ticket_id,
+                    _iso(row.p0_detected_at),
+                    row.current_rung,
+                    _iso(row.last_notified_at),
+                    _iso(row.acknowledged_at),
+                    row.acknowledged_by,
+                    row.stopped_reason,
+                    _iso(row.stopped_at),
+                ),
+            )
+
+    def advance_p0_rung(self, ticket_id: int, *, rung: int, now: datetime) -> None:
+        """Targeted rung bump — never touches ack/stop columns (avoids lost updates)."""
+        with self._lock, self._conn as conn:
+            conn.execute(
+                "UPDATE p0_escalations SET current_rung=?, last_notified_at=? WHERE ticket_id=?",
+                (rung, _iso(now), ticket_id),
+            )
+
+    def stop_p0_escalation(self, ticket_id: int, *, reason: str, now: datetime) -> None:
+        with self._lock, self._conn as conn:
+            conn.execute(
+                "UPDATE p0_escalations SET stopped_reason=?, stopped_at=? WHERE ticket_id=?",
+                (reason, _iso(now), ticket_id),
+            )
 
     # -- field cache (implements glpi.fields.CacheBackend) ---------------------------
 

@@ -22,6 +22,8 @@ logger = logging.getLogger(__name__)
 
 # One nag run at a time, shared by cron and dashboard run-now.
 _RUN_LOCK = threading.Lock()
+# E7-S3: the escalation loop serializes on its OWN lock (AD-1), never _RUN_LOCK.
+_ESCALATION_LOCK = threading.Lock()
 
 GlpiFactory = Callable[[], GlpiClient]
 
@@ -64,6 +66,58 @@ def fetch_and_score(
             ScoredTicket(ticket=ticket, metrics=metrics, tier=classify(metrics, cfg.app.thresholds))
         )
     return scored
+
+
+def build_alert_adapters(cfg: RuntimeConfig) -> list[object]:
+    """Adapters for the escalation alert channels (AD-3). OpenWA only for now;
+    Teams is added in E7-S5."""
+    from nagbot.channels.openwa import OpenWaAdapter
+
+    adapters: list[object] = []
+    for name in cfg.app.escalation.alert_channels:
+        if name == "openwa":
+            adapters.append(OpenWaAdapter.from_config(cfg))
+    return adapters
+
+
+def execute_escalation_run(
+    cfg: RuntimeConfig,
+    store: Store,
+    glpi_factory: GlpiFactory,
+    *,
+    dry_run: bool,
+    now: datetime | None = None,
+    alert_adapters: list[object] | None = None,
+) -> int:
+    """One escalation tick (AD-1): fetch → detect P0s → tick → send-then-persist.
+    No-op unless escalation is enabled. Returns the number of alerts sent."""
+    if not cfg.app.escalation.enabled:
+        return 0
+    if not _ESCALATION_LOCK.acquire(blocking=False):
+        logger.info("escalation tick skipped: previous tick still running")
+        return 0
+    try:
+        from nagbot.engine.escalation import dispatch_alerts, escalation_tick
+        from nagbot.engine.p0 import detect_p0s
+
+        now = now or datetime.now(cfg.tz)
+        scored = fetch_and_score(cfg, glpi_factory, store, now)
+        p0 = detect_p0s([s.ticket for s in scored], cfg.app.escalation.p0_rule)
+        active = store.active_p0_escalations()
+        result = escalation_tick(p0_tickets=p0, active=active, app=cfg.app, now=now)
+        adapters = alert_adapters if alert_adapters is not None else build_alert_adapters(cfg)
+        sent = dispatch_alerts(
+            result, store=store, alert_adapters=adapters, now=now, dry_run=dry_run
+        )
+        logger.info(
+            "escalation tick: %d P0(s), %d alert(s) sent, %d stop(s)",
+            len(p0),
+            sent,
+            len(result.stops),
+        )
+        return sent
+    finally:
+        _ESCALATION_LOCK.release()
 
 
 def build_all_digests(
