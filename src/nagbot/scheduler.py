@@ -37,9 +37,7 @@ def build_scheduler(
     if escalation_job is not None and cfg.app.escalation.enabled:
         scheduler.add_job(
             escalation_job,
-            IntervalTrigger(
-                seconds=cfg.app.escalation.cadence_seconds, timezone=cfg.app.timezone
-            ),
+            IntervalTrigger(seconds=cfg.app.escalation.cadence_seconds, timezone=cfg.app.timezone),
             id="escalation",
             name="P0 escalation loop",
             **common,

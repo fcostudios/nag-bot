@@ -388,9 +388,7 @@ class Store:
     def active_snoozes(self, now: datetime) -> dict[int, SnoozeRow]:
         """Snoozes still in effect (until >= today in UTC terms; caller passes tz-aware now)."""
         today = now.date().isoformat()
-        rows = self._conn.execute(
-            "SELECT * FROM snoozes WHERE until >= ?", (today,)
-        ).fetchall()
+        rows = self._conn.execute("SELECT * FROM snoozes WHERE until >= ?", (today,)).fetchall()
         result: dict[int, SnoozeRow] = {}
         for r in rows:
             d = dict(r)
@@ -404,9 +402,7 @@ class Store:
         return result
 
     def snooze_for(self, ticket_id: int) -> SnoozeRow | None:
-        row = self._conn.execute(
-            "SELECT * FROM snoozes WHERE ticket_id=?", (ticket_id,)
-        ).fetchone()
+        row = self._conn.execute("SELECT * FROM snoozes WHERE ticket_id=?", (ticket_id,)).fetchone()
         if row is None:
             return None
         d = dict(row)
@@ -569,13 +565,16 @@ class Store:
         ]
 
     def mark_acks_processed(self, ids: list[int], *, now: datetime) -> None:
+        """SEC-HIGH-1: physically DELETE processed acks instead of soft-marking them.
+        Nothing reads a processed ack again (drain only selects processed_at IS NULL), so
+        keeping the rows only let the inbox grow without bound; deletion caps the table."""
         if not ids:
             return
         placeholders = ",".join("?" for _ in ids)
         with self._lock, self._conn as conn:
             conn.execute(
-                f"UPDATE p0_ack_inbox SET processed_at=? WHERE id IN ({placeholders})",
-                (_iso(now), *ids),
+                f"DELETE FROM p0_ack_inbox WHERE id IN ({placeholders})",
+                tuple(ids),
             )
 
     # -- field cache (implements glpi.fields.CacheBackend) ---------------------------

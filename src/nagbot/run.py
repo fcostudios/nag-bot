@@ -82,9 +82,7 @@ def build_alert_adapters(cfg: RuntimeConfig, renderer: object | None = None) -> 
             adapters.append(OpenWaAdapter.from_config(cfg))
         elif name == "teams":
             webhook = (
-                cfg.env.teams_webhook_url.get_secret_value()
-                if cfg.env.teams_webhook_url
-                else ""
+                cfg.env.teams_webhook_url.get_secret_value() if cfg.env.teams_webhook_url else ""
             )
             adapters.append(TeamsAdapter(renderer, webhook))  # type: ignore[arg-type]
     return adapters
@@ -208,7 +206,12 @@ def execute_escalation_run(
         _revalidate_alerts(cfg, glpi_factory, store, result, now)  # AD-6
         adapters = alert_adapters if alert_adapters is not None else build_alert_adapters(cfg)
         sent = dispatch_alerts(
-            result, store=store, alert_adapters=adapters, now=now, dry_run=dry_run
+            result,
+            store=store,
+            alert_adapters=adapters,
+            now=now,
+            dry_run=dry_run,
+            max_alerts=cfg.app.escalation.max_alerts_per_tick,
         )
         logger.info(
             "escalation tick: %d P0(s), %d alert(s) sent, %d stop(s)",

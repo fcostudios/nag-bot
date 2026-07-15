@@ -16,8 +16,11 @@ services:
   openwa:
     image: openwa/wa-automate:${OPENWA_IMAGE_TAG:?pin a specific OpenWA tag/digest, never latest}
     restart: unless-stopped
+    # SEC: the EASY API has NO auth — it can send WhatsApp as our number. nagbot reaches it
+    # over the compose network (OPENWA_URL=http://openwa:8085), so the host publish is only
+    # for local ops/debug: bind it to loopback, never 0.0.0.0, so the LAN can't send through us.
     ports:
-      - "8085:8085"
+      - "127.0.0.1:8085:8085"
     # HTTP EASY API on 8085; -w pushes inbound messages (acks) to nagbot's webhook (E7-S4).
     command: ["-p", "8085", "-w", "http://nagbot:8080/webhooks/openwa", "--session-data-only"]
     volumes:

@@ -159,6 +159,8 @@ class TeamsAdapter:
             if attempt < MAX_ATTEMPTS:
                 self._sleep(2 ** (attempt - 1))
         return SendResult(
-            self.name, recipient, "failed",
+            self.name,
+            recipient,
+            "failed",
             detail=f"gave up after {MAX_ATTEMPTS} attempts — {last_detail}",
         )
