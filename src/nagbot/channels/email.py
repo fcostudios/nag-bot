@@ -123,7 +123,5 @@ class EmailAdapter:
                 smtp.send_message(message)
         except Exception as exc:  # noqa: BLE001 - one owner's failure must not kill the run
             logger.exception("email delivery to %s failed", recipient)
-            return SendResult(
-                self.name, recipient, "failed", detail=f"{detail} error={exc}", cc=cc
-            )
+            return SendResult(self.name, recipient, "failed", detail=f"{detail} error={exc}", cc=cc)
         return SendResult(self.name, recipient, "sent", detail=detail, cc=cc)

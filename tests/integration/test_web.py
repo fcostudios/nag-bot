@@ -624,7 +624,11 @@ def _webhook_runtime(tmp_path: Path) -> Runtime:
         nagbot_db_path=tmp_path / "wh.db",
     )
     app_cfg = AppConfig.model_validate(
-        {"owners": {"jdoe": {"name": "Juan Doe", "whatsapp": "+593999999991"}}}
+        {
+            # SEC-HIGH-1: the ack webhook only records inbound while escalation is live.
+            "escalation": {"enabled": True, "transparency_notice_given": True},
+            "owners": {"jdoe": {"name": "Juan Doe", "whatsapp": "+593999999991"}},
+        }
     )
     cfg = RuntimeConfig(env=env, app=app_cfg, dry_run=True)
     return Runtime(
@@ -682,3 +686,18 @@ def test_webhook_401_when_secret_unconfigured(tmp_path: Path) -> None:
         headers={"X-Webhook-Secret": "whook"},
     )
     assert resp.status_code == 401
+
+
+def test_webhook_ignores_ack_before_golive(tmp_path: Path) -> None:
+    """SEC-HIGH-1: with escalation not live, an authenticated roster ack is dropped (not
+    recorded) so a public webhook can't grow the inbox before go-live."""
+    rt = _webhook_runtime(tmp_path)
+    rt.cfg.app.escalation.transparency_notice_given = False  # not live yet
+    client = TestClient(create_app(rt, with_scheduler=False))
+    resp = client.post(
+        "/webhooks/openwa",
+        json={"from": "593999999991@c.us", "body": "on it"},
+        headers={"X-Webhook-Secret": "whook"},
+    )
+    assert resp.status_code == 200  # still 200 (don't leak state to caller)
+    assert rt.store.unprocessed_acks() == []  # but nothing recorded

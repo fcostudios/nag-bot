@@ -8,6 +8,7 @@ crash between send and write re-sends at worst once and a send failure retries.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, replace
 from datetime import timedelta
 from zoneinfo import ZoneInfo
@@ -17,6 +18,8 @@ from nagbot.config import AppConfig
 from nagbot.engine.ownership import resolve_owner
 from nagbot.glpi.models import Ticket
 from nagbot.store.repo import P0EscalationRow, Store
+
+logger = logging.getLogger("nagbot.escalation")
 
 
 @dataclass(frozen=True)
@@ -107,22 +110,23 @@ def escalation_tick(
         existing = active_by_id.get(tid)
 
         if existing is None:
-            # Anchor the detection NOW, regardless of whether rung 0's send succeeds —
-            # otherwise a failing/unreachable owner would re-open every tick, resetting
-            # the dwell clock, and the ladder could never climb (the exact failure mode
-            # escalation exists for).
-            anchor = P0EscalationRow(ticket_id=tid, p0_detected_at=now, current_rung=0)  # type: ignore[arg-type]
-            result.upserts.append(anchor)
-            recipient = chain[0] if chain else Recipient("", None)
-            if recipient.whatsapp:
-                text = build_alert_text(ticket, 0, is_climb=False, tz=tz)
-                row = replace(anchor, last_notified_at=now)  # type: ignore[arg-type]
-                result.alerts.append(AlertToSend(ticket, recipient, 0, False, text, row))
+            _open(result, tid, ticket, chain, now, tz)  # fresh detection
             continue
 
-        # AD-7: an acknowledged escalation holds — no more climbing (but AD-5 stop
-        # above still fires if the ticket leaves the P0 set).
+        # AD-7 + HIGH-1: an acknowledged escalation holds — UNLESS the ticket is STILL P0
+        # and the ack has gone stale (nobody actually resolved it). "On it" is not a
+        # permanent silence: after ack_grace, re-arm and page again from rung 0.
         if existing.acknowledged_at is not None:
+            ack_grace = timedelta(minutes=app.escalation.ack_grace_minutes)
+            if now - existing.acknowledged_at > ack_grace:  # type: ignore[operator]
+                _open(result, tid, ticket, chain, now, tz)  # re-arm: clears ack, resets clock
+            continue
+
+        # HIGH-3: a rung-0 open whose send failed (anchored but never notified) must be
+        # retried — otherwise the owner is skipped and the manager is paged first.
+        if existing.current_rung == 0 and existing.last_notified_at is None:
+            row = replace(existing, last_notified_at=now)  # type: ignore[arg-type]
+            _emit(result, ticket, chain, 0, is_climb=False, row=row, tz=tz)
             continue
 
         # AD-8: target rung is cumulative (catch-up), but climb at most ONE per tick.
@@ -133,6 +137,22 @@ def escalation_tick(
             row = replace(existing, current_rung=new_rung, last_notified_at=now)  # type: ignore[arg-type]
             _emit(result, ticket, chain, new_rung, is_climb=True, row=row, tz=tz)
     return result
+
+
+def _open(
+    result: TickResult, tid: int, ticket: Ticket, chain: list[Recipient], now: object, tz: ZoneInfo
+) -> None:
+    """Open (or re-arm) an escalation at rung 0. The anchor persists regardless of send
+    outcome (so a failing owner can't reset the clock); it also CLEARS any prior ack/stop
+    (INSERT OR REPLACE with all-None fields), which is what makes a stale-ack re-arm work."""
+    anchor = P0EscalationRow(ticket_id=tid, p0_detected_at=now, current_rung=0)  # type: ignore[arg-type]
+    result.upserts.append(anchor)
+    recipient = chain[0] if chain else Recipient("", None)
+    if recipient.whatsapp:
+        text = build_alert_text(ticket, 0, is_climb=False, tz=tz)
+        result.alerts.append(
+            AlertToSend(ticket, recipient, 0, False, text, replace(anchor, last_notified_at=now))  # type: ignore[arg-type]
+        )
 
 
 def _emit(
@@ -170,12 +190,26 @@ def dispatch_alerts(
     alert_adapters: list[object],
     now: object,
     dry_run: bool,
+    max_alerts: int | None = None,
 ) -> int:
     """Send each remaining alert (SENT first, then its row persisted only on a non-failed
     result — AD-4/AD-8). Batch stops/anchors are handled by `persist_tick_state`. Returns
-    the number of alerts actually sent."""
+    the number of alerts actually sent.
+
+    SEC-HIGH-2: `max_alerts` caps sends per tick (ban-avoidance on the unofficial channel).
+    Overflow alerts are NOT sent and NOT persisted, so they re-surface next tick — the
+    escalation is deferred, never dropped. A rung-0 open that overflows stays anchored
+    (persisted by `persist_tick_state`) with last_notified_at=None, so HIGH-3 retries it."""
     sent = 0
     for alert in result.alerts:
+        if max_alerts is not None and sent >= max_alerts:
+            logger.warning(
+                "escalation: per-tick alert cap (%d) reached; deferring #%s rung %d to next tick",
+                max_alerts,
+                alert.ticket.id,
+                alert.rung,
+            )
+            continue
         res = _dispatch_one(alert, alert_adapters, dry_run=dry_run)
         store.log_send(
             run_id=None,
@@ -194,11 +228,26 @@ def dispatch_alerts(
             if alert.is_climb:
                 stamp = alert.row.last_notified_at or now
                 store.advance_p0_rung(
-                    alert.row.ticket_id, rung=alert.row.current_rung, now=stamp  # type: ignore[arg-type]
+                    alert.row.ticket_id,
+                    rung=alert.row.current_rung,
+                    now=stamp,  # type: ignore[arg-type]
                 )
             else:
                 store.upsert_p0_escalation(alert.row)
             sent += 1
+        else:
+            # HIGH-2: every channel failed/skipped/timed-out. This is the exact
+            # never-cry-wolf inversion — a P0 nobody heard about. Loud ERROR so ops sees
+            # the undelivered page; the row is NOT persisted so the tick retries it.
+            logger.error(
+                "escalation: P0 alert UNDELIVERED for #%s rung %d to %s (%s: %s) — "
+                "no channel accepted it; will retry next tick",
+                alert.ticket.id,
+                alert.rung,
+                alert.recipient.whatsapp,
+                res.status,
+                res.detail,
+            )
     return sent
 
 

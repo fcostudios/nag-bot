@@ -98,9 +98,7 @@ def _match_options(options: dict[str, Any]) -> dict[str, int]:
             continue  # skip non-option keys like "common"
         table, field = opt.get("table"), opt.get("field")
         for name, (sig_table, sig_field) in _SIGNATURES.items():
-            if table == sig_table and (
-                field == sig_field or (name == "group" and field == "name")
-            ):
+            if table == sig_table and (field == sig_field or (name == "group" and field == "name")):
                 candidates.setdefault(name, []).append((int(uid_str), opt))
 
     discovered: dict[str, int] = {}
@@ -162,10 +160,7 @@ class FieldMap:
         return cls({**discovered, **(overrides or {})})
 
     def forcedisplay_params(self) -> dict[str, int]:
-        return {
-            f"forcedisplay[{i}]": uid
-            for i, uid in enumerate(dict.fromkeys(self.ids.values()))
-        }
+        return {f"forcedisplay[{i}]": uid for i, uid in enumerate(dict.fromkeys(self.ids.values()))}
 
     def to_ticket(self, row: dict[str, object], *, server_tz: ZoneInfo, web_base: str) -> Ticket:
         def cell(name: str) -> object:

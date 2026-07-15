@@ -58,9 +58,7 @@ def build_adapters(cfg: RuntimeConfig, renderer: Renderer) -> list[ChannelAdapte
             adapters.append(EmailAdapter.from_config(cfg, renderer))
         elif name == "teams":
             webhook = (
-                cfg.env.teams_webhook_url.get_secret_value()
-                if cfg.env.teams_webhook_url
-                else ""
+                cfg.env.teams_webhook_url.get_secret_value() if cfg.env.teams_webhook_url else ""
             )
             adapters.append(TeamsAdapter(renderer, webhook))
         elif name == "whatsapp":
@@ -68,9 +66,7 @@ def build_adapters(cfg: RuntimeConfig, renderer: Renderer) -> list[ChannelAdapte
                 WhatsAppAdapter(
                     renderer,
                     token=(
-                        cfg.env.whatsapp_token.get_secret_value()
-                        if cfg.env.whatsapp_token
-                        else ""
+                        cfg.env.whatsapp_token.get_secret_value() if cfg.env.whatsapp_token else ""
                     ),
                     phone_number_id=cfg.env.whatsapp_phone_number_id or "",
                     template_name=cfg.env.whatsapp_template_name or "",

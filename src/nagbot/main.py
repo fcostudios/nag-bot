@@ -29,9 +29,7 @@ def _setup_logging() -> None:
     from nagbot.config import EnvSettings
 
     level = EnvSettings().nagbot_log_level.upper()
-    logging.basicConfig(
-        level=level, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
-    )
+    logging.basicConfig(level=level, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 
 def _cmd_fetch(as_json: bool) -> int:

@@ -37,6 +37,7 @@ from nagbot.scheduler import build_scheduler
 def run_lock_busy() -> bool:
     return _RUN_LOCK.locked()
 
+
 if TYPE_CHECKING:
     from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -72,7 +73,10 @@ def make_jobs(rt: Runtime) -> tuple:
 
     def escalation_job() -> None:
         execute_escalation_run(
-            rt.cfg, rt.store, rt.glpi_factory, dry_run=rt.cfg.dry_run,
+            rt.cfg,
+            rt.store,
+            rt.glpi_factory,
+            dry_run=rt.cfg.dry_run,
             alert_adapters=build_alert_adapters(rt.cfg, rt.renderer),
         )
 
@@ -131,9 +135,7 @@ def create_app(rt: Runtime | None = None, *, with_scheduler: bool = True) -> Fas
     app.mount("/static", StaticFiles(directory=str(WEB_DIR / "static")), name="static")
 
     password = (
-        rt.cfg.env.dashboard_password.get_secret_value()
-        if rt.cfg.env.dashboard_password
-        else None
+        rt.cfg.env.dashboard_password.get_secret_value() if rt.cfg.env.dashboard_password else None
     )
 
     webhook_secret = (
@@ -217,9 +219,7 @@ def register_routes(app: FastAPI) -> None:
                 "rollup": rollup,
                 "snapshots": snaps,
                 "snoozes": {s.ticket_id for s in snaps if s.snoozed},
-                "escalated": {
-                    e.ticket_id for e in rt.store.escalations() if e.escalated_at
-                },
+                "escalated": {e.ticket_id for e in rt.store.escalations() if e.escalated_at},
             },
         )
 
@@ -256,20 +256,14 @@ def register_routes(app: FastAPI) -> None:
                 "owner_name": owner_name,
                 "snapshots": owner_snaps,
                 "snoozes": {s.ticket_id for s in owner_snaps if s.snoozed},
-                "escalated": {
-                    e.ticket_id for e in rt.store.escalations() if e.escalated_at
-                },
+                "escalated": {e.ticket_id for e in rt.store.escalations() if e.escalated_at},
             },
         )
 
     @app.get("/ops")
-    def ops_dashboard(
-        request: Request, channel: str = "", status: str = ""
-    ) -> Response:
+    def ops_dashboard(request: Request, channel: str = "", status: str = "") -> Response:
         runs = rt.store.recent_runs(limit=50)
-        sends = rt.store.recent_sends(
-            limit=200, channel=channel or None, status=status or None
-        )
+        sends = rt.store.recent_sends(limit=200, channel=channel or None, status=status or None)
         latest_warnings = next((r.warnings for r in runs if r.warnings), [])
         return templates.TemplateResponse(
             request,
@@ -299,6 +293,12 @@ def register_routes(app: FastAPI) -> None:
             return Response(status_code=400)
         if not isinstance(payload, dict):
             return Response(status_code=400)
+        # SEC-HIGH-1: only accept acks when escalation is actually live. Before go-live
+        # (disabled, or notice not yet given) nothing is being paged, so any inbound is
+        # noise — recording it would let a public webhook grow the inbox unbounded.
+        esc = rt.cfg.app.escalation
+        if not (esc.enabled and esc.transparency_notice_given):
+            return Response(status_code=200)
         sender = _normalize_chatid(str(payload.get("from", "")))
         text = str(payload.get("body", ""))
         roster = {o.whatsapp for o in rt.cfg.app.owners.values() if o.whatsapp}
@@ -316,9 +316,7 @@ def register_routes(app: FastAPI) -> None:
         try:
             until_date = date.fromisoformat(until)
         except ValueError:
-            return RedirectResponse(
-                f"/tickets/{ticket_id}?error=invalid+date", status_code=303
-            )
+            return RedirectResponse(f"/tickets/{ticket_id}?error=invalid+date", status_code=303)
         now = datetime.now(rt.cfg.tz)
         if until_date < now.date():
             return RedirectResponse(
@@ -407,7 +405,9 @@ def register_routes(app: FastAPI) -> None:
         history = rt.store.ticket_history(ticket_id)
         if not history:
             return templates.TemplateResponse(
-                request, "ticket.html.j2", {"ticket_id": ticket_id, "history": []},
+                request,
+                "ticket.html.j2",
+                {"ticket_id": ticket_id, "history": []},
                 status_code=404,
             )
         return templates.TemplateResponse(

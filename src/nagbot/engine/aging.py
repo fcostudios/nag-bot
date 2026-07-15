@@ -80,8 +80,6 @@ def compute_metrics(
     return TicketMetrics(
         age_bd=business_days_between(ticket.date_opened, now, tz, holidays),
         stale_bd=business_days_between(ticket.date_mod, now, tz, holidays),
-        sla_status=compute_sla_status(
-            ticket.time_to_resolve, now, thresholds.sla_due_soon_hours
-        ),
+        sla_status=compute_sla_status(ticket.time_to_resolve, now, thresholds.sla_due_soon_hours),
         sla_due=ticket.time_to_resolve,
     )

@@ -132,6 +132,8 @@ class WhatsAppAdapter:
             return SendResult(self.name, recipient, "sent", detail=f"message id {message_id}")
         logger.error("whatsapp POST %d: %s", resp.status_code, resp.text[:300])
         return SendResult(
-            self.name, recipient, "failed",
+            self.name,
+            recipient,
+            "failed",
             detail=f"HTTP {resp.status_code}: {resp.text[:200]}",
         )

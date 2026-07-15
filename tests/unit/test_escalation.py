@@ -86,8 +86,14 @@ def test_open_new_p0_alerts_rung0() -> None:
 
 
 def test_climb_one_rung_after_dwell() -> None:
+    # rung-0 was DELIVERED (last_notified_at set); after dwell it climbs to rung 1
     active = [
-        P0EscalationRow(ticket_id=1, p0_detected_at=NOW - timedelta(minutes=6), current_rung=0)
+        P0EscalationRow(
+            ticket_id=1,
+            p0_detected_at=NOW - timedelta(minutes=6),
+            current_rung=0,
+            last_notified_at=NOW - timedelta(minutes=6),
+        )
     ]
     res = escalation_tick(p0_tickets=[tk(1)], active=active, app=APP, now=NOW)
     assert len(res.alerts) == 1
@@ -97,9 +103,14 @@ def test_climb_one_rung_after_dwell() -> None:
 
 
 def test_climb_at_most_one_rung_per_tick_even_after_long_gap() -> None:
-    # 12 min elapsed at rung 0 → target rung 2, but must climb only to rung 1
+    # 12 min elapsed at a DELIVERED rung 0 → target rung 2, but must climb only to rung 1
     active = [
-        P0EscalationRow(ticket_id=1, p0_detected_at=NOW - timedelta(minutes=12), current_rung=0)
+        P0EscalationRow(
+            ticket_id=1,
+            p0_detected_at=NOW - timedelta(minutes=12),
+            current_rung=0,
+            last_notified_at=NOW - timedelta(minutes=12),
+        )
     ]
     res = escalation_tick(p0_tickets=[tk(1)], active=active, app=APP, now=NOW)
     assert len(res.alerts) == 1 and res.alerts[0].rung == 1
@@ -183,9 +194,14 @@ def test_dispatch_persists_row_on_sent(tmp_path) -> None:  # type: ignore[no-unt
 
 def test_dispatch_failed_climb_does_not_advance_rung(tmp_path) -> None:  # type: ignore[no-untyped-def]
     store = Store(tmp_path / "d2.db")
-    # anchored at rung 0 with dwell elapsed → tick wants to climb to rung 1
+    # a DELIVERED rung 0 with dwell elapsed → tick wants to climb to rung 1
     store.upsert_p0_escalation(
-        P0EscalationRow(ticket_id=1, p0_detected_at=NOW - timedelta(minutes=6), current_rung=0)
+        P0EscalationRow(
+            ticket_id=1,
+            p0_detected_at=NOW - timedelta(minutes=6),
+            current_rung=0,
+            last_notified_at=NOW - timedelta(minutes=6),
+        )
     )
     res = escalation_tick(
         p0_tickets=[tk(1)], active=store.active_p0_escalations(), app=APP, now=NOW
@@ -416,3 +432,103 @@ def test_runbook_has_notice_and_golive_steps() -> None:
     text = _P("docs/e7-escalation-runbook.md").read_text()
     assert "transparency_notice_given" in text
     assert "5 or 6" in text and "OPENWA_WEBHOOK_SECRET" in text
+
+
+# --- E7 epic-hardening: cross-story emergent-bug fixes --------------------------
+
+
+def test_high1_stale_ack_rearms_after_grace() -> None:
+    """A still-P0 ticket whose ack has gone stale (past ack_grace_minutes) must re-arm
+    from rung 0 — 'on it' is not permanent silence."""
+    acked_long_ago = NOW - timedelta(minutes=45)  # default ack_grace is 30
+    active = [
+        P0EscalationRow(
+            ticket_id=1,
+            p0_detected_at=NOW - timedelta(hours=2),
+            current_rung=1,
+            last_notified_at=NOW - timedelta(hours=1),
+            acknowledged_at=acked_long_ago,
+            acknowledged_by="+593999999991",
+        )
+    ]
+    res = escalation_tick(p0_tickets=[tk(1)], active=active, app=APP, now=NOW)
+    assert len(res.alerts) == 1 and res.alerts[0].rung == 0 and res.alerts[0].is_climb is False
+    # the re-armed anchor clears the ack and resets the detection clock
+    assert res.upserts[0].acknowledged_at is None and res.upserts[0].p0_detected_at == NOW
+
+
+def test_high1_fresh_ack_still_holds() -> None:
+    """An ack within the grace window still silences the ladder (no re-arm, no climb)."""
+    active = [
+        P0EscalationRow(
+            ticket_id=1,
+            p0_detected_at=NOW - timedelta(hours=1),
+            current_rung=1,
+            last_notified_at=NOW - timedelta(minutes=40),
+            acknowledged_at=NOW - timedelta(minutes=5),  # well within 30-min grace
+            acknowledged_by="+593999999991",
+        )
+    ]
+    res = escalation_tick(p0_tickets=[tk(1)], active=active, app=APP, now=NOW)
+    assert res.alerts == [] and res.upserts == [] and res.stops == []
+
+
+def test_high3_rung0_retries_when_never_delivered() -> None:
+    """A rung-0 anchor whose open never delivered (last_notified_at is None) retries the
+    OWNER — it must not be skipped and jump straight to the manager."""
+    active = [
+        P0EscalationRow(
+            ticket_id=1,
+            p0_detected_at=NOW - timedelta(minutes=20),  # long past dwell
+            current_rung=0,
+            last_notified_at=None,  # open never landed
+        )
+    ]
+    res = escalation_tick(p0_tickets=[tk(1)], active=active, app=APP, now=NOW)
+    assert len(res.alerts) == 1
+    a = res.alerts[0]
+    assert a.rung == 0 and a.is_climb is False and a.recipient.whatsapp == "+593999999991"
+
+
+def test_sechigh2_rate_cap_defers_overflow(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """max_alerts caps sends per tick; overflow is deferred (not sent, not persisted)."""
+    store = Store(tmp_path / "cap.db")
+    tickets = [tk(i) for i in range(1, 6)]  # 5 fresh P0s → 5 rung-0 opens
+    res = escalation_tick(p0_tickets=tickets, active=[], app=APP, now=NOW)
+    persist_tick_state(res, store=store, now=NOW)
+    assert len(res.alerts) == 5
+    adapter = FakeAdapter("sent")
+    sent = dispatch_alerts(
+        res, store=store, alert_adapters=[adapter], now=NOW, dry_run=False, max_alerts=2
+    )
+    assert sent == 2 and adapter.calls == 2  # only 2 sent this tick
+    # 3 overflow anchors remain rung 0, un-notified → HIGH-3 retries them next tick
+    undelivered = [e for e in store.active_p0_escalations() if e.last_notified_at is None]
+    assert len(undelivered) == 3
+
+
+def test_high2_undelivered_logs_error(tmp_path, caplog) -> None:  # type: ignore[no-untyped-def]
+    """When every channel fails, an ERROR is logged (the never-cry-wolf inversion)."""
+    import logging
+
+    store = Store(tmp_path / "und.db")
+    res = _tick_with_one_alert()
+    persist_tick_state(res, store=store, now=NOW)
+    with caplog.at_level(logging.ERROR, logger="nagbot.escalation"):
+        dispatch_alerts(
+            res, store=store, alert_adapters=[FakeAdapter("failed")], now=NOW, dry_run=False
+        )
+    assert any("UNDELIVERED" in r.message for r in caplog.records)
+
+
+def test_ack_inbox_physically_deleted_on_process(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """SEC-HIGH-1: processed acks are DELETEd, not soft-marked, so the inbox stays bounded."""
+    store = Store(tmp_path / "inbox.db")
+    store.append_ack(sender="+593999999991", text="on it", now=NOW)
+    acks = store.unprocessed_acks()
+    assert len(acks) == 1
+    store.mark_acks_processed([acks[0].id], now=NOW)
+    # gone entirely — not merely hidden from the unprocessed query
+    with store._lock:
+        remaining = store._conn.execute("SELECT COUNT(*) AS n FROM p0_ack_inbox").fetchone()
+    assert dict(remaining)["n"] == 0

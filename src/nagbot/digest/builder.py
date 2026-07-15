@@ -80,9 +80,7 @@ def build_digests(
             )
         )
     # deterministic order: worst owners first (most on-fire, then most tickets)
-    digests.sort(
-        key=lambda d: (-d.counts[Tier.ON_FIRE], -d.counts[Tier.HOT], -len(d.tickets))
-    )
+    digests.sort(key=lambda d: (-d.counts[Tier.ON_FIRE], -d.counts[Tier.HOT], -len(d.tickets)))
     return digests
 
 
@@ -104,9 +102,7 @@ def build_rollup(
         )
         for key, rows in by_person.items()
     ]
-    per_person.sort(
-        key=lambda p: (-p.counts[Tier.ON_FIRE], -p.counts[Tier.HOT], -p.total)
-    )
+    per_person.sort(key=lambda p: (-p.counts[Tier.ON_FIRE], -p.counts[Tier.HOT], -p.total))
 
     leaderboard = sorted(
         snapshots, key=lambda s: (TIER_ORDER[Tier(s.tier)], -s.stale_bd, -s.age_bd)

@@ -18,6 +18,10 @@ live WIP and a full audit log of every nag sent.
 **Channels:** Email · Microsoft Teams (Adaptive Cards with @mentions, see
 `docs/teams-setup.md`) · WhatsApp (Meta Cloud API utility template, rate-capped)
 
+For **critical incidents that can't wait for tomorrow's digest**, a separate urgent-P0
+escalation loop pages the owner on WhatsApp within a minute and climbs the chain until
+someone acknowledges — see **[P0 escalation](#p0-escalation-epic-7)** below.
+
 ## Quick start (Docker)
 
 ```bash
@@ -94,8 +98,32 @@ record and QA gate. Golden files regenerate with `pytest --update-golden`.
   numbers must be E.164. Sends are capped per run (`channels.whatsapp_max_per_run`,
   default 20, worst offenders first) and owners without a number are simply skipped.
 
+## P0 escalation (Epic 7)
+
+A second, faster scheduler loop (every ~60s, its own lock) handles genuine **P0 incidents**
+— it does not touch the daily digest pipeline. When a ticket is marked P0 in GLPI, nagbot
+pages the owner on WhatsApp (via a self-hosted **OpenWA** sidecar), and if nobody replies
+"on it" it climbs owner → manager → triage on a dwell cadence, re-checking the live ticket
+before every page so it stops the instant the incident is resolved. Its whole design goal
+is **"trust instrument — never cry wolf"**: it errs toward *not* paging, never toward
+silently dropping a real P0.
+
+- Ships **disabled and safe**: gated behind `escalation.enabled` **and**
+  `escalation.transparency_notice_given` (a LOPDP transparency notice must reach staff
+  first), and the default rule (`priority >= 5`) escalates nothing until a real P0 is marked.
+- WhatsApp down/banned → **falls through to Teams** automatically. Sends are rate-capped
+  per tick (ban-avoidance on the unofficial channel). A stale "on it" re-arms after
+  `ack_grace_minutes`.
+- Inbound acks arrive at `POST /webhooks/openwa` (authenticated with `OPENWA_WEBHOOK_SECRET`).
+
+**Turning it on:** [`docs/e7-escalation-runbook.md`](docs/e7-escalation-runbook.md) (go-live
+checklist + the staff notice text). **How it works, every knob, failure modes:**
+[`docs/e7-escalation.md`](docs/e7-escalation.md).
+
 ## Roadmap
 
-All six epics of the original strategy are implemented: email digests, dashboards,
-escalation + Monday rollup, Teams cards, WhatsApp. Ideas beyond the spec: 1:1 Teams DMs
-via Graph API, GLPI 11 high-level-API client, per-team digest channels.
+All seven epics are implemented: email digests, dashboards, escalation + Monday rollup,
+Teams cards, WhatsApp digests, and urgent P0 escalation (Epic 7). Deferred within Epic 7:
+the phone-**call** rung (needs the official Cloud API / Twilio — OpenWA can't call),
+per-tier SLA-configurable dwell, and false-positive/ack-time stats. Ideas beyond the spec:
+1:1 Teams DMs via Graph API, GLPI 11 high-level-API client, per-team digest channels.

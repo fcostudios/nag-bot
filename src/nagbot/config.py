@@ -113,8 +113,11 @@ class EscalationCfg(BaseModel):
     dwell_minutes: float = 5.0
     cadence_seconds: int = 60
     default_triage: str | None = None  # an owners-key or an E.164 number
-    alert_channels: list[str] = Field(default_factory=lambda: ["openwa"])
+    # Teams is in the default chain so an unconfigured/banned OpenWA never silently no-ops.
+    alert_channels: list[str] = Field(default_factory=lambda: ["openwa", "teams"])
     alert_send_timeout: int = 15  # per-send HTTP timeout; a hung OpenWA fails → Teams fallback
+    max_alerts_per_tick: int = 10  # ban-avoidance cap on unofficial sends per tick; overflow defers
+    ack_grace_minutes: int = 30  # re-arm an acknowledged-but-still-P0 escalation after this long
     ack_ttl_minutes: int = 120  # unmatched inbound acks are retained this long, then swept
 
     @field_validator("alert_channels")
@@ -238,9 +241,7 @@ def _validate(env: EnvSettings, app: AppConfig) -> None:
             if not val:
                 missing.append(f"{var} (whatsapp channel is enabled)")
     if missing:
-        raise ConfigError(
-            "missing required environment variables:\n  - " + "\n  - ".join(missing)
-        )
+        raise ConfigError("missing required environment variables:\n  - " + "\n  - ".join(missing))
 
 
 def load_config(env: EnvSettings | None = None) -> RuntimeConfig:
