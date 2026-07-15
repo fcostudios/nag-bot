@@ -24,6 +24,7 @@ from nagbot.engine.tiers import TIER_ORDER, Tier
 from nagbot.run import (
     _RUN_LOCK,
     build_all_digests,
+    execute_escalation_run,
     execute_nag_run,
     execute_rollup_run,
     fetch_and_score,
@@ -60,7 +61,10 @@ def make_jobs(rt: Runtime) -> tuple:
     def rollup_job() -> None:
         execute_rollup_run(rt.cfg, rt.store, rt.adapters, dry_run=rt.cfg.dry_run)
 
-    return nag_job, rollup_job
+    def escalation_job() -> None:
+        execute_escalation_run(rt.cfg, rt.store, rt.glpi_factory, dry_run=rt.cfg.dry_run)
+
+    return nag_job, rollup_job, escalation_job
 
 
 def _check_basic_auth(header: str | None, password: str) -> bool:
@@ -96,8 +100,8 @@ def create_app(rt: Runtime | None = None, *, with_scheduler: bool = True) -> Fas
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         nonlocal scheduler
         if with_scheduler:
-            nag_job, rollup_job = make_jobs(rt)
-            scheduler = build_scheduler(rt.cfg, nag_job, rollup_job)
+            nag_job, rollup_job, escalation_job = make_jobs(rt)
+            scheduler = build_scheduler(rt.cfg, nag_job, rollup_job, escalation_job)
             scheduler.start()
             logger.info(
                 "scheduler running (digest: %s, dry_run: %s)",

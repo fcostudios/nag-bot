@@ -81,6 +81,19 @@ MIGRATIONS: list[str] = [
     """
     ALTER TABLE runs ADD COLUMN warnings TEXT;
     """,
+    # 003 — E7: per-ticket P0 escalation state (single-writer: the escalation engine)
+    """
+    CREATE TABLE p0_escalations (
+        ticket_id INTEGER PRIMARY KEY,
+        p0_detected_at TEXT NOT NULL,
+        current_rung INTEGER NOT NULL DEFAULT 0,
+        last_notified_at TEXT,
+        acknowledged_at TEXT,
+        acknowledged_by TEXT,
+        stopped_reason TEXT,
+        stopped_at TEXT
+    );
+    """,
 ]
 
 

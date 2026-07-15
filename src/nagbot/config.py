@@ -106,6 +106,21 @@ class EscalationCfg(BaseModel):
 
     enabled: bool = False
     p0_rule: list[list[P0Condition]] = Field(default_factory=_default_p0_rule)
+    # E7-S3 — climbing-ladder tuning (all config-driven, never hardcoded)
+    dwell_minutes: float = 5.0
+    cadence_seconds: int = 60
+    default_triage: str | None = None  # an owners-key or an E.164 number
+    alert_channels: list[str] = Field(default_factory=lambda: ["openwa"])
+
+    @field_validator("alert_channels")
+    @classmethod
+    def _known_alert_channels(cls, v: list[str]) -> list[str]:
+        # Fail loud at config load (not per-tick at outage time). "teams" joins in E7-S5.
+        allowed = {"openwa"}
+        bad = [c for c in v if c not in allowed]
+        if bad:
+            raise ValueError(f"unknown escalation alert_channels {bad}; allowed: {sorted(allowed)}")
+        return v
 
 
 class GlpiTuning(BaseModel):

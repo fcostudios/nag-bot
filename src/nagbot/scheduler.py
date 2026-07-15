@@ -6,6 +6,7 @@ from collections.abc import Callable
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 from nagbot.config import RuntimeConfig
 
@@ -14,6 +15,7 @@ def build_scheduler(
     cfg: RuntimeConfig,
     nag_job: Callable[[], object],
     rollup_job: Callable[[], object],
+    escalation_job: Callable[[], object] | None = None,
 ) -> BackgroundScheduler:
     scheduler = BackgroundScheduler(timezone=cfg.app.timezone)
     common = {"coalesce": True, "misfire_grace_time": 3600, "max_instances": 1}
@@ -31,4 +33,15 @@ def build_scheduler(
         name="weekly manager rollup",
         **common,
     )
+    # E7-S3: the P0 escalation loop — short interval, only when enabled (AD-1).
+    if escalation_job is not None and cfg.app.escalation.enabled:
+        scheduler.add_job(
+            escalation_job,
+            IntervalTrigger(
+                seconds=cfg.app.escalation.cadence_seconds, timezone=cfg.app.timezone
+            ),
+            id="escalation",
+            name="P0 escalation loop",
+            **common,
+        )
     return scheduler
