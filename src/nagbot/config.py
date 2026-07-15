@@ -105,6 +105,9 @@ class EscalationCfg(BaseModel):
     any group's conditions all match). Default ships disabled and priority>=5."""
 
     enabled: bool = False
+    # E7-S6 — LOPDP/consent gate: escalation refuses to page until staff were given the
+    # one-time transparency notice (see docs/e7-escalation-runbook.md). Both flags required.
+    transparency_notice_given: bool = False
     p0_rule: list[list[P0Condition]] = Field(default_factory=_default_p0_rule)
     # E7-S3 — climbing-ladder tuning (all config-driven, never hardcoded)
     dwell_minutes: float = 5.0

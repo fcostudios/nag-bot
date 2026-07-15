@@ -24,6 +24,8 @@ logger = logging.getLogger(__name__)
 _RUN_LOCK = threading.Lock()
 # E7-S3: the escalation loop serializes on its OWN lock (AD-1), never _RUN_LOCK.
 _ESCALATION_LOCK = threading.Lock()
+# E7-S6: warn once (not every tick) when escalation is enabled but the notice isn't given.
+_NOTICE_WARNED = False
 
 GlpiFactory = Callable[[], GlpiClient]
 
@@ -173,6 +175,16 @@ def execute_escalation_run(
     """One escalation tick (AD-1): fetch → detect P0s → tick → send-then-persist.
     No-op unless escalation is enabled. Returns the number of alerts sent."""
     if not cfg.app.escalation.enabled:
+        return 0
+    if not cfg.app.escalation.transparency_notice_given:
+        global _NOTICE_WARNED
+        if not _NOTICE_WARNED:  # warn once, not every tick
+            logger.warning(
+                "escalation enabled but transparency notice not acknowledged — no P0 will be "
+                "paged; set escalation.transparency_notice_given=true once staff are notified "
+                "(see docs/e7-escalation-runbook.md)"
+            )
+            _NOTICE_WARNED = True
         return 0
     if not _ESCALATION_LOCK.acquire(blocking=False):
         logger.info("escalation tick skipped: previous tick still running")
