@@ -111,13 +111,14 @@ class EscalationCfg(BaseModel):
     cadence_seconds: int = 60
     default_triage: str | None = None  # an owners-key or an E.164 number
     alert_channels: list[str] = Field(default_factory=lambda: ["openwa"])
+    alert_send_timeout: int = 15  # per-send HTTP timeout; a hung OpenWA fails → Teams fallback
     ack_ttl_minutes: int = 120  # unmatched inbound acks are retained this long, then swept
 
     @field_validator("alert_channels")
     @classmethod
     def _known_alert_channels(cls, v: list[str]) -> list[str]:
-        # Fail loud at config load (not per-tick at outage time). "teams" joins in E7-S5.
-        allowed = {"openwa"}
+        # Fail loud at config load (not per-tick at outage time).
+        allowed = {"openwa", "teams"}
         bad = [c for c in v if c not in allowed]
         if bad:
             raise ValueError(f"unknown escalation alert_channels {bad}; allowed: {sorted(allowed)}")

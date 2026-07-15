@@ -29,13 +29,16 @@ def to_chat_id(number: str) -> str:
 class OpenWaAdapter:
     name = "openwa"
 
-    def __init__(self, base_url: str = "", *, http: httpx.Client | None = None) -> None:
+    def __init__(
+        self, base_url: str = "", *, http: httpx.Client | None = None, timeout: float = 30
+    ) -> None:
         self.base_url = base_url.rstrip("/")
-        self._http = http or httpx.Client(timeout=30)
+        self._http = http or httpx.Client(timeout=timeout)
 
     @classmethod
     def from_config(cls, cfg: RuntimeConfig) -> OpenWaAdapter:
-        return cls(cfg.env.openwa_url or "")
+        # A hung OpenWA must fail fast so the escalation can fall through to Teams (AD-3).
+        return cls(cfg.env.openwa_url or "", timeout=cfg.app.escalation.alert_send_timeout)
 
     @property
     def _configured(self) -> bool:

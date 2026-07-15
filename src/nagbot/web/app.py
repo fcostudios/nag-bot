@@ -23,6 +23,7 @@ from nagbot.digest.builder import build_rollup
 from nagbot.engine.tiers import TIER_ORDER, Tier
 from nagbot.run import (
     _RUN_LOCK,
+    build_alert_adapters,
     build_all_digests,
     execute_escalation_run,
     execute_nag_run,
@@ -70,7 +71,10 @@ def make_jobs(rt: Runtime) -> tuple:
         execute_rollup_run(rt.cfg, rt.store, rt.adapters, dry_run=rt.cfg.dry_run)
 
     def escalation_job() -> None:
-        execute_escalation_run(rt.cfg, rt.store, rt.glpi_factory, dry_run=rt.cfg.dry_run)
+        execute_escalation_run(
+            rt.cfg, rt.store, rt.glpi_factory, dry_run=rt.cfg.dry_run,
+            alert_adapters=build_alert_adapters(rt.cfg, rt.renderer),
+        )
 
     return nag_job, rollup_job, escalation_job
 

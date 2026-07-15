@@ -156,10 +156,9 @@ def test_p0_escalation_store_roundtrip(tmp_path) -> None:  # type: ignore[no-unt
 
 
 class FakeAdapter:
-    name = "openwa"
-
-    def __init__(self, status: str = "sent") -> None:
+    def __init__(self, status: str = "sent", name: str = "openwa") -> None:
         self.status = status
+        self.name = name
         self.calls = 0
 
     def send_alert(self, alert: object, *, dry_run: bool) -> SendResult:
@@ -324,5 +323,61 @@ def test_execute_escalation_run_happy_path(tmp_path) -> None:  # type: ignore[no
 
 
 def test_bad_alert_channels_rejected_at_load() -> None:
-    with pytest.raises(ValidationError):  # "teams" not wired until E7-S5 → fail loud
-        AppConfig.model_validate({"escalation": {"alert_channels": ["teams"]}})
+    with pytest.raises(ValidationError):  # unknown channel → fail loud at load
+        AppConfig.model_validate({"escalation": {"alert_channels": ["sms"]}})
+
+
+# --- E7-S5: Teams fallback -----------------------------------------------------
+
+def test_dispatch_falls_through_to_teams_when_openwa_fails(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    store = Store(tmp_path / "fb.db")
+    res = _tick_with_one_alert()
+    persist_tick_state(res, store=store, now=NOW)
+    openwa = FakeAdapter("failed", name="openwa")
+    teams = FakeAdapter("sent", name="teams")
+    sent = dispatch_alerts(res, store=store, alert_adapters=[openwa, teams], now=NOW, dry_run=False)
+    assert sent == 1 and openwa.calls == 1 and teams.calls == 1  # fell through to Teams
+
+
+def test_alert_channels_accepts_openwa_and_teams() -> None:
+    cfg = AppConfig.model_validate({"escalation": {"alert_channels": ["openwa", "teams"]}})
+    assert cfg.escalation.alert_channels == ["openwa", "teams"]
+
+
+def test_build_alert_adapters_wires_teams() -> None:
+    from nagbot.channels.teams import TeamsAdapter
+    from nagbot.run import build_alert_adapters
+
+    cfg = _runtime(enabled=True)
+    cfg.app.escalation.alert_channels[:] = ["openwa", "teams"]
+    adapters = build_alert_adapters(cfg, renderer=None)
+    assert [a.name for a in adapters] == ["openwa", "teams"]
+    assert isinstance(adapters[1], TeamsAdapter)
+
+
+def test_openwa_from_config_uses_alert_timeout() -> None:
+    from nagbot.channels.openwa import OpenWaAdapter
+
+    cfg = _runtime(enabled=True)
+    cfg.app.escalation.alert_send_timeout = 7
+    adapter = OpenWaAdapter.from_config(cfg)
+    assert adapter._http.timeout.read == 7  # hung OpenWA fails fast → Teams fallback
+
+
+def test_dispatch_both_channels_fail_no_persist(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    store = Store(tmp_path / "bf.db")
+    res = _tick_with_one_alert()
+    persist_tick_state(res, store=store, now=NOW)
+    o, t = FakeAdapter("failed", name="openwa"), FakeAdapter("failed", name="teams")
+    sent = dispatch_alerts(res, store=store, alert_adapters=[o, t], now=NOW, dry_run=False)
+    assert sent == 0 and o.calls == 1 and t.calls == 1
+    # anchor stays (open), rung not notified → retries next tick
+    assert store.active_p0_escalations()[0].last_notified_at is None
+
+
+def test_dispatch_stops_at_first_sent_channel(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    store = Store(tmp_path / "ord.db")
+    res = _tick_with_one_alert()
+    first, second = FakeAdapter("sent", name="teams"), FakeAdapter("sent", name="openwa")
+    sent = dispatch_alerts(res, store=store, alert_adapters=[first, second], now=NOW, dry_run=False)
+    assert sent == 1 and first.calls == 1 and second.calls == 0  # order honored, stop on first sent
