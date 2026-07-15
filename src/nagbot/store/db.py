@@ -94,6 +94,16 @@ MIGRATIONS: list[str] = [
         stopped_at TEXT
     );
     """,
+    # 004 — E7-S4: append-only inbound-ack inbox (webhook writes; engine drains)
+    """
+    CREATE TABLE p0_ack_inbox (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sender TEXT NOT NULL,
+        text TEXT NOT NULL DEFAULT '',
+        received_at TEXT NOT NULL,
+        processed_at TEXT
+    );
+    """,
 ]
 
 

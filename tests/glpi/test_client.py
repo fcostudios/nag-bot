@@ -63,9 +63,7 @@ def test_session_lifecycle_headers() -> None:
 def test_pagination_spans_pages() -> None:
     mock_init_session()
     pages = [
-        httpx.Response(
-            206, json={"data": [row(1), row(2)]}, headers={"Content-Range": "0-1/3"}
-        ),
+        httpx.Response(206, json={"data": [row(1), row(2)]}, headers={"Content-Range": "0-1/3"}),
         httpx.Response(200, json={"data": [row(3)]}),
     ]
     respx.get(f"{BASE}/search/Ticket").mock(side_effect=pages)
@@ -156,3 +154,22 @@ def test_glpi11_version_warning(caplog: pytest.LogCaptureFixture) -> None:
     with caplog.at_level("WARNING"), make_client() as client:
         client.search_open_tickets(FieldMap())
     assert any("deprecated in GLPI 11+" in r.message for r in caplog.records)
+
+
+@respx.mock
+def test_get_ticket_single_fetch() -> None:
+    mock_init_session()
+    respx.get(f"{BASE}/search/Ticket").mock(
+        return_value=httpx.Response(200, json={"data": [row(7)]})
+    )
+    with make_client() as client:
+        t = client.get_ticket(7, FieldMap())
+    assert t is not None and t.id == 7
+
+
+@respx.mock
+def test_get_ticket_missing_returns_none() -> None:
+    mock_init_session()
+    respx.get(f"{BASE}/search/Ticket").mock(return_value=httpx.Response(200, json={"data": []}))
+    with make_client() as client:
+        assert client.get_ticket(999, FieldMap()) is None

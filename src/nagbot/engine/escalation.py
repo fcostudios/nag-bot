@@ -120,6 +120,11 @@ def escalation_tick(
                 result.alerts.append(AlertToSend(ticket, recipient, 0, False, text, row))
             continue
 
+        # AD-7: an acknowledged escalation holds — no more climbing (but AD-5 stop
+        # above still fires if the ticket leaves the P0 set).
+        if existing.acknowledged_at is not None:
+            continue
+
         # AD-8: target rung is cumulative (catch-up), but climb at most ONE per tick.
         elapsed = now - existing.p0_detected_at  # type: ignore[operator]
         target = min(int(elapsed / dwell), top) if dwell else top
@@ -149,6 +154,15 @@ def _emit(
         result.upserts.append(row)
 
 
+def persist_tick_state(result: TickResult, *, store: Store, now: object) -> None:
+    """Persist the tick's unconditional state — batch stops + no-send anchors/advances.
+    Runs BEFORE re-validation so an AD-6 stop lands on a persisted row (not a no-op)."""
+    for tid, reason in result.stops:
+        store.stop_p0_escalation(tid, reason=reason, now=now)  # type: ignore[arg-type]
+    for row in result.upserts:
+        store.upsert_p0_escalation(row)
+
+
 def dispatch_alerts(
     result: TickResult,
     *,
@@ -157,14 +171,9 @@ def dispatch_alerts(
     now: object,
     dry_run: bool,
 ) -> int:
-    """Perform the side effects: stops + no-send upserts immediately; each alert is
-    SENT first, then its row persisted only on a non-failed result (AD-4/AD-8). Returns
+    """Send each remaining alert (SENT first, then its row persisted only on a non-failed
+    result — AD-4/AD-8). Batch stops/anchors are handled by `persist_tick_state`. Returns
     the number of alerts actually sent."""
-    for tid, reason in result.stops:
-        store.stop_p0_escalation(tid, reason=reason, now=now)  # type: ignore[arg-type]
-    for row in result.upserts:
-        store.upsert_p0_escalation(row)
-
     sent = 0
     for alert in result.alerts:
         res = _dispatch_one(alert, alert_adapters, dry_run=dry_run)

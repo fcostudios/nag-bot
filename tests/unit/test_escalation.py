@@ -13,6 +13,7 @@ from nagbot.engine.escalation import (
     dispatch_alerts,
     escalation_chain,
     escalation_tick,
+    persist_tick_state,
 )
 from nagbot.glpi.models import Ticket
 from nagbot.store.repo import P0EscalationRow, Store
@@ -222,6 +223,7 @@ def test_dispatch_fails_fast_without_send_alert_channel(tmp_path) -> None:  # ty
 def test_open_anchors_clock_even_on_failed_send(tmp_path) -> None:  # type: ignore[no-untyped-def]
     store = Store(tmp_path / "anc.db")
     res = escalation_tick(p0_tickets=[tk(1)], active=[], app=APP, now=NOW)
+    persist_tick_state(res, store=store, now=NOW)  # anchor persists regardless of send
     dispatch_alerts(
         res, store=store, alert_adapters=[FakeAdapter("failed")], now=NOW, dry_run=False
     )
@@ -282,6 +284,9 @@ class _FakeGlpi:
 
     def search_open_tickets(self, field_map: object) -> list[Ticket]:
         return self.tickets
+
+    def get_ticket(self, ticket_id: int, field_map: object) -> Ticket | None:
+        return next((t for t in self.tickets if t.id == ticket_id), None)
 
 
 def _factory(tickets: list[Ticket]):  # type: ignore[no-untyped-def]
