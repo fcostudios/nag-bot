@@ -22,6 +22,14 @@ class SendResult:
     cc: str | None = None
 
 
+@dataclass(frozen=True)
+class EscalationAlert:
+    """A single per-ticket urgent alert (E7). Minimal for E7-S1; enriched in E7-S3."""
+
+    recipient: str  # E.164 WhatsApp number
+    text: str
+
+
 class ChannelAdapter(Protocol):
     name: str
 

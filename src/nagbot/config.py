@@ -45,6 +45,10 @@ class EnvSettings(BaseSettings):
     whatsapp_phone_number_id: str | None = None
     whatsapp_template_name: str | None = None
 
+    # E7 — self-hosted OpenWA sidecar (alert channel) + inbound webhook auth
+    openwa_url: str | None = None
+    openwa_webhook_secret: SecretStr | None = None
+
     dashboard_password: SecretStr | None = None
 
     nagbot_config_path: Path = Path("/config/nagbot.yaml")

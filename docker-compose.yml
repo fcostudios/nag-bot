@@ -10,5 +10,19 @@ services:
       - ./config:/config:ro
       - nagbot-data:/data
 
+  # E7-S1 — self-hosted OpenWA sidecar (WhatsApp-Web → HTTP). AD-2/AD-9.
+  # First run requires scanning a QR against the dedicated WhatsApp number (ops runbook).
+  # Pin a specific tag/digest — never :latest (AD-9): set OPENWA_IMAGE_TAG in .env.
+  openwa:
+    image: openwa/wa-automate:${OPENWA_IMAGE_TAG:?pin a specific OpenWA tag/digest, never latest}
+    restart: unless-stopped
+    ports:
+      - "8085:8085"
+    # HTTP EASY API on 8085; -w pushes inbound messages (acks) to nagbot's webhook (E7-S4).
+    command: ["-p", "8085", "-w", "http://nagbot:8080/webhooks/openwa", "--session-data-only"]
+    volumes:
+      - openwa-session:/sessions
+
 volumes:
   nagbot-data:
+  openwa-session:
