@@ -84,6 +84,30 @@ class ChannelsCfg(BaseModel):
     whatsapp_max_per_run: int = 20
 
 
+P0Op = Literal[">=", ">", "<=", "<", "==", "!=", "in"]
+
+
+class P0Condition(BaseModel):
+    """One `field op value` test evaluated against a GLPI Ticket (E7-S2)."""
+
+    field: str
+    op: P0Op
+    value: int | str | list[int | str]
+
+
+def _default_p0_rule() -> list[list[P0Condition]]:
+    # Confirmed default (2026-07 GLPI probe): priority 5/6 = Alta/Muy alta.
+    return [[P0Condition(field="priority", op=">=", value=5)]]
+
+
+class EscalationCfg(BaseModel):
+    """E7 urgent-escalation tuning. P0 rule is OR-of-AND groups (a ticket is P0 if
+    any group's conditions all match). Default ships disabled and priority>=5."""
+
+    enabled: bool = False
+    p0_rule: list[list[P0Condition]] = Field(default_factory=_default_p0_rule)
+
+
 class GlpiTuning(BaseModel):
     server_timezone: str | None = None  # defaults to app timezone
     page_size: int = 100
@@ -119,6 +143,7 @@ class AppConfig(BaseModel):
     thresholds: Thresholds = Field(default_factory=Thresholds)
     holidays: list[date] = Field(default_factory=list)
     channels: ChannelsCfg = Field(default_factory=ChannelsCfg)
+    escalation: EscalationCfg = Field(default_factory=EscalationCfg)
     glpi: GlpiTuning = Field(default_factory=GlpiTuning)
     owners: dict[str, OwnerCfg] = Field(default_factory=dict)
     groups: dict[str, OwnerCfg] = Field(default_factory=dict)

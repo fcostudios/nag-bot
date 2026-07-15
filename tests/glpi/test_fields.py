@@ -49,6 +49,21 @@ def test_discovery_matches_signatures() -> None:
     assert fm.ids == CANONICAL  # this fixture mirrors a stock install
 
 
+def test_discovery_finds_p0_fields_from_options() -> None:
+    # E7-S2: prove the 4 new fields resolve from listSearchOptions (not just the
+    # canonical fallback) — give them NON-canonical uids so only real discovery wins.
+    options = dict(OPTIONS)
+    options["203"] = {"table": "glpi_tickets", "field": "priority", "name": "Priority"}
+    options["210"] = {"table": "glpi_tickets", "field": "urgency", "name": "Urgency"}
+    options["211"] = {"table": "glpi_tickets", "field": "impact", "name": "Impact"}
+    options["207"] = {"table": "glpi_itilcategories", "field": "completename", "name": "Category"}
+    fm = FieldMap.discover(FakeClient(options), now=NOW)  # type: ignore[arg-type]
+    assert fm.ids["priority"] == 203
+    assert fm.ids["urgency"] == 210
+    assert fm.ids["impact"] == 211
+    assert fm.ids["category"] == 207
+
+
 def test_discovery_disambiguates_tech_by_linkfield() -> None:
     # swap uids so canonical fallback can't accidentally win
     options = dict(OPTIONS)
