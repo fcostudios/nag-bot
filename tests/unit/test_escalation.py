@@ -251,7 +251,7 @@ _OWNERS = {
 }
 
 
-def _runtime(*, enabled: bool) -> RuntimeConfig:
+def _runtime(*, enabled: bool, notice: bool = True) -> RuntimeConfig:
     env = EnvSettings(
         glpi_base_url="https://x/apirest.php",
         glpi_app_token="a",  # noqa: S106
@@ -261,7 +261,12 @@ def _runtime(*, enabled: bool) -> RuntimeConfig:
     app = AppConfig.model_validate(
         {
             "timezone": GYE,
-            "escalation": {"enabled": enabled, "dwell_minutes": 5, "default_triage": "triage"},
+            "escalation": {
+                "enabled": enabled,
+                "transparency_notice_given": notice,
+                "dwell_minutes": 5,
+                "default_triage": "triage",
+            },
             "owners": _OWNERS,
         }
     )
@@ -381,3 +386,33 @@ def test_dispatch_stops_at_first_sent_channel(tmp_path) -> None:  # type: ignore
     first, second = FakeAdapter("sent", name="teams"), FakeAdapter("sent", name="openwa")
     sent = dispatch_alerts(res, store=store, alert_adapters=[first, second], now=NOW, dry_run=False)
     assert sent == 1 and first.calls == 1 and second.calls == 0  # order honored, stop on first sent
+
+
+# --- E7-S6: transparency-notice compliance gate --------------------------------
+
+def test_no_escalation_without_transparency_notice(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    store = Store(tmp_path / "tn.db")
+    adapter = FakeAdapter("sent")
+    sent = execute_escalation_run(
+        _runtime(enabled=True, notice=False), store, lambda: _FakeGlpi([tk(1)]),
+        dry_run=False, now=NOW, alert_adapters=[adapter],
+    )
+    assert sent == 0 and adapter.calls == 0
+    assert store.active_p0_escalations() == []  # nothing paged, nothing written
+
+
+def test_escalates_when_notice_given(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    store = Store(tmp_path / "tn2.db")
+    adapter = FakeAdapter("sent")
+    sent = execute_escalation_run(
+        _runtime(enabled=True, notice=True), store, lambda: _FakeGlpi([tk(1)]),
+        dry_run=False, now=NOW, alert_adapters=[adapter],
+    )
+    assert sent == 1 and len(store.active_p0_escalations()) == 1
+
+
+def test_runbook_has_notice_and_golive_steps() -> None:
+    from pathlib import Path as _P
+    text = _P("docs/e7-escalation-runbook.md").read_text()
+    assert "transparency_notice_given" in text
+    assert "5 or 6" in text and "OPENWA_WEBHOOK_SECRET" in text
