@@ -52,6 +52,14 @@ def is_auth_exempt(path: str) -> bool:
     return any(path == p or path.startswith(p + "/") for p in AUTH_EXEMPT_PREFIXES)
 
 
+def _normalize_chatid(chat_id: str) -> str:
+    """OpenWA chatId (``593999999991@c.us``) → E.164 (``+593999999991``)."""
+    digits = chat_id.split("@", 1)[0].strip()
+    if not digits:
+        return ""
+    return digits if digits.startswith("+") else f"+{digits}"
+
+
 def make_jobs(rt: Runtime) -> tuple:
     def nag_job() -> None:
         execute_nag_run(
@@ -124,8 +132,23 @@ def create_app(rt: Runtime | None = None, *, with_scheduler: bool = True) -> Fas
         else None
     )
 
+    webhook_secret = (
+        rt.cfg.env.openwa_webhook_secret.get_secret_value()
+        if rt.cfg.env.openwa_webhook_secret
+        else None
+    )
+
     @app.middleware("http")
     async def basic_auth(request: Request, call_next):  # type: ignore[no-untyped-def]
+        # E7-S4 (AD-7): the OpenWA webhook is machine-authed by a dedicated secret —
+        # not Basic, and deliberately NOT in AUTH_EXEMPT_PREFIXES.
+        if request.url.path == "/webhooks/openwa":
+            provided = request.headers.get("X-Webhook-Secret")
+            if not webhook_secret or not (
+                provided and secrets.compare_digest(provided, webhook_secret)
+            ):
+                return Response(status_code=401)
+            return await call_next(request)
         if is_auth_exempt(request.url.path):
             return await call_next(request)
         if not password:
@@ -260,6 +283,25 @@ def register_routes(app: FastAPI) -> None:
                 "last_rollup": next(iter(rt.store.recent_sends(1, kind="rollup")), None),
             },
         )
+
+    @app.post("/webhooks/openwa")
+    async def openwa_webhook(request: Request) -> Response:
+        """E7-S4 (AD-7): inbound WhatsApp reply from the OpenWA sidecar. Auth is the
+        webhook secret (middleware). Writes ONLY the ack inbox; a reply counts only if
+        the sender matches the roster. The escalation runner drains + applies it."""
+        try:
+            payload = await request.json()
+        except Exception:  # noqa: BLE001 - malformed body
+            return Response(status_code=400)
+        if not isinstance(payload, dict):
+            return Response(status_code=400)
+        sender = _normalize_chatid(str(payload.get("from", "")))
+        text = str(payload.get("body", ""))
+        roster = {o.whatsapp for o in rt.cfg.app.owners.values() if o.whatsapp}
+        roster |= {o.whatsapp for o in rt.cfg.app.groups.values() if o.whatsapp}
+        if sender and sender in roster:
+            rt.store.append_ack(sender=sender, text=text, now=datetime.now(rt.cfg.tz))
+        return Response(status_code=200)
 
     @app.post("/snooze")
     def snooze(

@@ -161,6 +161,32 @@ class GlpiClient:
             raise GlpiError(f"listSearchOptions: unexpected response {type(data)}")
         return data
 
+    def get_ticket(self, ticket_id: int, field_map: FieldMap) -> Ticket | None:
+        """Single-ticket re-fetch (E7-S4 / AD-6). Filters to OPEN (`notold`) so a ticket
+        that was solved/closed since the batch fetch returns None — the re-validation must
+        catch a *resolution*, not just a priority downgrade."""
+        params: dict[str, Any] = {
+            "criteria[0][field]": 2,  # id
+            "criteria[0][searchtype]": "equals",
+            "criteria[0][value]": ticket_id,
+            "criteria[1][link]": "AND",
+            "criteria[1][field]": 12,  # status
+            "criteria[1][searchtype]": "equals",
+            "criteria[1][value]": "notold",
+            **field_map.forcedisplay_params(),
+            "range": "0-0",
+        }
+        resp = self._request("GET", "/search/Ticket", params=params)
+        payload = resp.json()
+        rows = payload.get("data", []) if isinstance(payload, dict) else []
+        if not rows:
+            return None
+        try:
+            return field_map.to_ticket(rows[0], server_tz=self.server_tz, web_base=self.web_base)
+        except (ValueError, KeyError) as exc:
+            logger.warning("get_ticket %d: unparseable row %r: %s", ticket_id, rows[0], exc)
+            return None
+
     def search_open_tickets(self, field_map: FieldMap) -> list[Ticket]:
         """All tickets with status 'notold' (not solved/closed), across all pages."""
         base_params: dict[str, Any] = {

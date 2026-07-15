@@ -111,6 +111,7 @@ class EscalationCfg(BaseModel):
     cadence_seconds: int = 60
     default_triage: str | None = None  # an owners-key or an E.164 number
     alert_channels: list[str] = Field(default_factory=lambda: ["openwa"])
+    ack_ttl_minutes: int = 120  # unmatched inbound acks are retained this long, then swept
 
     @field_validator("alert_channels")
     @classmethod

@@ -104,6 +104,14 @@ class P0EscalationRow:
     stopped_at: datetime | None = None
 
 
+@dataclass(frozen=True)
+class AckRow:
+    id: int
+    sender: str
+    text: str
+    received_at: datetime
+
+
 def _row_to_p0(d: dict[str, Any]) -> P0EscalationRow:
     def s(key: str) -> str | None:
         v = d.get(key)
@@ -524,6 +532,50 @@ class Store:
             conn.execute(
                 "UPDATE p0_escalations SET stopped_reason=?, stopped_at=? WHERE ticket_id=?",
                 (reason, _iso(now), ticket_id),
+            )
+
+    def set_p0_acknowledged(self, ticket_id: int, *, by: str, now: datetime) -> None:
+        """Targeted ack UPDATE — never touches rung/stop columns (AD-4 single-writer)."""
+        with self._lock, self._conn as conn:
+            conn.execute(
+                "UPDATE p0_escalations SET acknowledged_at=?, acknowledged_by=? "
+                "WHERE ticket_id=? AND acknowledged_at IS NULL",
+                (_iso(now), by, ticket_id),
+            )
+
+    # -- P0 ack inbox (E7-S4; webhook appends, escalation runner drains) --------------
+
+    def append_ack(self, *, sender: str, text: str, now: datetime) -> None:
+        with self._lock, self._conn as conn:
+            conn.execute(
+                "INSERT INTO p0_ack_inbox (sender, text, received_at) VALUES (?, ?, ?)",
+                (sender, text, _iso(now)),
+            )
+
+    def unprocessed_acks(self) -> list[AckRow]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT id, sender, text, received_at FROM p0_ack_inbox "
+                "WHERE processed_at IS NULL ORDER BY id"
+            ).fetchall()
+        return [
+            AckRow(
+                id=int(d["id"]),
+                sender=str(d["sender"]),
+                text=str(d["text"]),
+                received_at=_parse_dt(d["received_at"]) or datetime.now(UTC),
+            )
+            for d in (dict(r) for r in rows)
+        ]
+
+    def mark_acks_processed(self, ids: list[int], *, now: datetime) -> None:
+        if not ids:
+            return
+        placeholders = ",".join("?" for _ in ids)
+        with self._lock, self._conn as conn:
+            conn.execute(
+                f"UPDATE p0_ack_inbox SET processed_at=? WHERE id IN ({placeholders})",
+                (_iso(now), *ids),
             )
 
     # -- field cache (implements glpi.fields.CacheBackend) ---------------------------

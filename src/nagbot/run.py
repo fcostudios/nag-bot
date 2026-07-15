@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import logging
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from nagbot.channels.base import ChannelAdapter, SendResult, begin_run
 from nagbot.config import RuntimeConfig
@@ -80,6 +80,79 @@ def build_alert_adapters(cfg: RuntimeConfig) -> list[object]:
     return adapters
 
 
+def _drain_acks(
+    cfg: RuntimeConfig, store: Store, tickets_by_id: Mapping[int, object], now: datetime
+) -> None:
+    """AD-7: an inbound reply from a roster number acks every active, un-acked
+    escalation whose current chain includes that number. Writes only ack columns."""
+    from nagbot.engine.escalation import escalation_chain
+
+    acks = store.unprocessed_acks()
+    if not acks:
+        return
+    ack_id_by_sender: dict[str, int] = {}
+    for a in acks:  # first ack id per sender
+        ack_id_by_sender.setdefault(a.sender, a.id)
+    senders = set(ack_id_by_sender)
+
+    applied: set[int] = set()
+    for esc in store.active_p0_escalations():
+        if esc.acknowledged_at is not None:
+            continue
+        ticket = tickets_by_id.get(esc.ticket_id)
+        if ticket is None:
+            continue
+        chain_numbers = {r.whatsapp for r in escalation_chain(ticket, cfg.app) if r.whatsapp}  # type: ignore[arg-type]
+        matched = senders & chain_numbers
+        if matched:
+            sender = next(iter(matched))
+            store.set_p0_acknowledged(esc.ticket_id, by=sender, now=now)
+            applied.add(ack_id_by_sender[sender])
+
+    # Only consume acks that were applied; RETAIN unmatched ones for a later tick (an ack
+    # can arrive before its escalation is anchored) — but sweep anything older than the TTL
+    # so the inbox can't grow unbounded.
+    ttl = timedelta(minutes=cfg.app.escalation.ack_ttl_minutes)
+    aged = {a.id for a in acks if now - a.received_at > ttl}
+    store.mark_acks_processed(sorted(applied | aged), now=now)
+
+
+def _revalidate_alerts(
+    cfg: RuntimeConfig, glpi_factory: GlpiFactory, store: Store, result: object, now: datetime
+) -> None:
+    """AD-6: re-fetch each alert's ticket right before dispatch. Not-P0 → stop; a
+    fetch failure is NEVER a stop (drop the alert this tick, retry next)."""
+    from nagbot.engine.p0 import is_p0
+
+    alerts = result.alerts  # type: ignore[attr-defined]
+    if not alerts:
+        return
+    rule = cfg.app.escalation.p0_rule
+    validated: list[object] = []
+    try:
+        with glpi_factory() as client:
+            field_map = FieldMap.discover(
+                client, overrides=cfg.app.glpi.field_ids, cache=store, now=now
+            )
+            for alert in alerts:
+                try:
+                    fresh = client.get_ticket(alert.ticket.id, field_map)
+                except Exception:  # noqa: BLE001 - blind fetch failure must not stop a P0
+                    logger.exception(
+                        "revalidate get_ticket %d failed; skip dispatch", alert.ticket.id
+                    )
+                    continue
+                if fresh is None or not is_p0(fresh, rule):
+                    store.stop_p0_escalation(alert.ticket.id, reason="revalidated_not_p0", now=now)
+                    continue
+                validated.append(alert)
+    except Exception:  # noqa: BLE001 - GLPI session down: drop dispatch this tick, no stops
+        logger.exception("revalidate session failed; skipping dispatch this tick")
+        result.alerts = []  # type: ignore[attr-defined]
+        return
+    result.alerts = validated  # type: ignore[attr-defined]
+
+
 def execute_escalation_run(
     cfg: RuntimeConfig,
     store: Store,
@@ -97,14 +170,22 @@ def execute_escalation_run(
         logger.info("escalation tick skipped: previous tick still running")
         return 0
     try:
-        from nagbot.engine.escalation import dispatch_alerts, escalation_tick
+        from nagbot.engine.escalation import (
+            dispatch_alerts,
+            escalation_tick,
+            persist_tick_state,
+        )
         from nagbot.engine.p0 import detect_p0s
 
         now = now or datetime.now(cfg.tz)
         scored = fetch_and_score(cfg, glpi_factory, store, now)
-        p0 = detect_p0s([s.ticket for s in scored], cfg.app.escalation.p0_rule)
+        tickets_by_id = {s.ticket.id: s.ticket for s in scored}
+        p0 = detect_p0s(list(tickets_by_id.values()), cfg.app.escalation.p0_rule)
+        _drain_acks(cfg, store, tickets_by_id, now)  # AD-7
         active = store.active_p0_escalations()
         result = escalation_tick(p0_tickets=p0, active=active, app=cfg.app, now=now)
+        persist_tick_state(result, store=store, now=now)  # anchors/stops BEFORE re-validate
+        _revalidate_alerts(cfg, glpi_factory, store, result, now)  # AD-6
         adapters = alert_adapters if alert_adapters is not None else build_alert_adapters(cfg)
         sent = dispatch_alerts(
             result, store=store, alert_adapters=adapters, now=now, dry_run=dry_run
@@ -196,9 +277,7 @@ def _execute_locked(
 
         # escalation streaks: only active (non-snoozed) red tickets keep their streak
         red_ids = {
-            s.ticket.id
-            for s in scored
-            if s.tier is Tier.ON_FIRE and s.ticket.id not in snoozed_ids
+            s.ticket.id for s in scored if s.tier is Tier.ON_FIRE and s.ticket.id not in snoozed_ids
         }
         newly_escalated = store.bump_red_streaks(
             red_ids,
